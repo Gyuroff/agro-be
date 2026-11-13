@@ -1,0 +1,79 @@
+[project]
+name = "agro-be"
+version = "0.1.0"
+description = "Agro ERP — бекенд (FastAPI, SQLAlchemy, Alembic, SQLAdmin, Celery, LangGraph)"
+requires-python = ">=3.12,<3.13"
+# Версиите са долни граници от docs/architecture.md §2; точните се фиксират в uv.lock.
+dependencies = [
+    "fastapi>=0.162",
+    "uvicorn[standard]",
+    "sqlalchemy>=2.1",
+    "psycopg[binary]>=3.3",
+    "alembic>=1.20",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.16",
+    "sqladmin>=0.32",
+    "itsdangerous>=2.2",
+    "argon2-cffi>=25.1",
+    "pyjwt>=2.15",
+    "celery>=5.7",
+    "redis",
+    "langgraph>=1.2",
+    "langchain-anthropic",
+    "boto3",
+    "imapclient>=4.1",
+    "python-dateutil",
+    "holidays>=0.108",
+    "openpyxl>=3.1",
+    "pypdf",
+    "weasyprint>=70",
+    "lxml>=6.1",
+    "firebase-admin>=7.8",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-cov",
+    "ruff",
+    "pyright",
+    "freezegun",
+    "respx",
+    "moto[s3]",
+]
+
+[tool.uv]
+package = false          # приложение, не библиотека — кодът се ползва от /app, не се инсталира
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "DTZ", "RUF"]
+# DTZ: забранява datetime.now()/utcnow() без часова зона — ползвай app.core.clock
+# RUF001-003: текстовете са на български — кирилицата е нарочна, не „двусмислена“.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+# Папката alembic/ (миграции) кара ruff да мисли, че пакетът alembic е локален.
+known-third-party = ["alembic"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.pyright]
+include = ["app", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"  # basic+ за всичко; strict за чистия код по-долу
+strict = ["app/core", "app/domain"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "e2e: сценарии с GreenMail (nightly / преди go-live на поток)",
+]

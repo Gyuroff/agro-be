@@ -1,0 +1,111 @@
+# Локална среда за agro-be (docs/architecture.md §1, §5, §6, §10).
+# Инфраструктурата (postgres, redis, greenmail) тръгва винаги:   docker compose up -d
+# Приложението (api, worker, beat) е под профил "app":           docker compose --profile app up -d
+
+name: agro-be
+
+x-app-env: &app-env
+  APP_ENV: dev
+  APP_DATABASE_URL: postgresql+psycopg://agro:agro@postgres:5432/agro
+  APP_REDIS_URL: redis://redis:6379/0
+  APP_STORAGE_DIR: /var/lib/agro/storage
+  APP_IMAP_HOST: greenmail
+  APP_IMAP_PORT: "3143"
+  APP_IMAP_SSL: "false"
+  APP_SMTP_HOST: greenmail
+  APP_SMTP_PORT: "3025"
+  APP_SMTP_STARTTLS: "false"
+  APP_LLM_PROVIDER: stub
+
+x-app: &app
+  build:
+    context: .
+    target: dev
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    <<: *app-env
+  volumes:
+    - .:/app
+    - storage:/var/lib/agro/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    greenmail:
+      condition: service_started
+  profiles: ["app"]
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agro
+      POSTGRES_PASSWORD: agro
+      POSTGRES_DB: agro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # изпълнява се само при първо създаване на тома pgdata
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agro -d agro && psql -U agro -d agro_test -c 'select 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Истински IMAP/SMTP за интеграционни тестове (IMAP 3143, SMTP 3025).
+  # Потребители: login:password@domain. Пощата е в паметта — губи се при рестарт.
+  greenmail:
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp
+        -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.users=orders:orders@agroimport.test
+        -Dgreenmail.auth.disabled
+    ports:
+      - "${GREENMAIL_SMTP_PORT:-3025}:3025"
+      - "${GREENMAIL_IMAP_PORT:-3143}:3143"
+    # Healthcheck е изключен изрично: образът е минимален (няма nc/curl) и може да носи свой вграден
+    # check, който гърми. `up --wait` го брои за готов, щом е стартирал; GreenMail тръгва за 2–3 сек.
+    # Проверка на ръка: docker compose logs greenmail
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *app
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=INFO"]
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=INFO"]
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
