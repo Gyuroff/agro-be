@@ -62,3 +62,5 @@
 - `app/domain/money.py`, `billing.py`, `tests/unit/test_domain_money_dates_billing.py`; domain 100 %.
 - Решение на собственика: БЕЗ преместване от почивни дни/празници (датите са точно от RRULE); `dates.py` е изтрит. `docs/data-model.md` §11 в agro-app още пише обратното — да се поправи.
 - `vat(amount, rate)` — ставката е в проценти (20.00). `next_billing_date` е `>= днес`, `previous_billing_date` е `< днес`.
+
+- Решение: `company_settings.mi_invoice_grace_days` (календарни дни; преименувана от `..._working_days` в миграция 0004 и в docs на agro-app). Работни дни в проекта няма.

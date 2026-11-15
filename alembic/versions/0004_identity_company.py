@@ -74,7 +74,7 @@ def upgrade() -> None:
             server_default=sa.text("0.01"),
             nullable=False,
         ),
-        sa.Column("mi_invoice_grace_working_days", sa.Integer(), server_default=sa.text("2"), nullable=False),
+        sa.Column("mi_invoice_grace_days", sa.Integer(), server_default=sa.text("2"), nullable=False),
         sa.Column("mailbox_alarm_minutes", sa.Integer(), server_default=sa.text("60"), nullable=False),
         sa.Column("email_undo_seconds", sa.Integer(), server_default=sa.text("10"), nullable=False),
         sa.Column("app_lock_background_minutes", sa.Integer(), server_default=sa.text("5"), nullable=False),
