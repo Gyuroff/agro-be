@@ -38,7 +38,7 @@ AUDIT_SKIPPED_COLUMNS: frozenset[str] = frozenset(
 )
 MASK = "***"
 _SENSITIVE_COLUMNS: frozenset[str] = frozenset(
-    {"password_hash", "refresh_token_hash", "push_token", "smtp_password"}
+    {"password_hash", "refresh_token_hash", "token_hash", "push_token", "smtp_password"}
 )
 # Само в тези източници изричен created_by_id/updated_by_id не се презаписва от контекста.
 _OVERRIDE_SOURCES = frozenset({AuditSource.SEED, AuditSource.MIGRATION})
