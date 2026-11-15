@@ -1,37 +1,31 @@
 """С база: оптимистично заключване и lazy="raise" върху истинска Postgres.
 
 Тестовата таблица се създава в транзакцията на теста и изчезва с rollback-а (DDL в Postgres е
-транзакционен). Одитните id-та се задават ръчно — слушателят before_flush идва с agro-l2v.2.
+транзакционен). Одитните id-та идват от слушателя before_flush през фикстурата `audit_ctx`.
 """
 
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from tests.audited_models import Actor, AuditedTestBase, Thing
+from app.core.audit_context import AuditContext
+from tests.audited_models import AuditedTestBase, Thing
 
 
 @pytest.fixture
-def audited_session(db_session: Session) -> Iterator[Session]:
+def audited_session(db_session: Session, audit_ctx: AuditContext) -> Iterator[Session]:
     AuditedTestBase.metadata.create_all(
         db_session.connection(), tables=[AuditedTestBase.metadata.tables["test_things"]]
     )
     yield db_session
 
 
-def _seed_actor_id(session: Session) -> int:
-    actor_id = session.scalar(select(Actor.id).where(Actor.code == "system:seed"))
-    assert actor_id is not None
-    return actor_id
-
-
 def _new_thing(session: Session) -> Thing:
-    actor_id = _seed_actor_id(session)
-    thing = Thing(name="a", created_by_id=actor_id, updated_by_id=actor_id)
+    thing = Thing(name="a")
     session.add(thing)
     session.flush()
     return thing

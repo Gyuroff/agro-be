@@ -6,11 +6,13 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
+from app.core.audit_context import AuditContext, AuditSource, audit_context
 from app.core.config import get_settings
 from app.main import create_app
+from app.models.identity import Actor
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -74,3 +76,12 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
 def client() -> Iterator[TestClient]:
     with TestClient(create_app()) as c:
         yield c
+
+
+@pytest.fixture
+def audit_ctx(db_session: Session) -> Iterator[AuditContext]:
+    """Одитен контекст `system:seed` / `seed` за тестове, които пишат в одитирани таблици."""
+    actor_id = db_session.scalar(select(Actor.id).where(Actor.code == "system:seed"))
+    assert actor_id is not None
+    with audit_context(AuditContext(actor_id, AuditSource.SEED, request_id="test-req")) as ctx:
+        yield ctx
