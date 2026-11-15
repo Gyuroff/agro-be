@@ -6,7 +6,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine, select
+from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.orm import Session
 
 from app.core.audit_context import AuditContext, AuditSource, audit_context
@@ -51,9 +51,16 @@ def alembic_config() -> Config:
 
 @pytest.fixture(scope="session")
 def db_engine() -> Iterator[Engine]:
-    """Схемата се прави с `alembic upgrade head` веднъж на сесия (architecture §10)."""
-    command.upgrade(alembic_config(), "head")
+    """Чиста схема с `alembic upgrade head` веднъж на сесия (architecture §10).
+
+    Базата `agro_test` е само за тестове: всяко пускане започва от празна схема, та променена
+    миграция или остатък от предишно пускане да не дават фалшиви грешки.
+    """
     engine = create_engine(TEST_DATABASE_URL)
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+    command.upgrade(alembic_config(), "head")
     yield engine
     engine.dispose()
 
