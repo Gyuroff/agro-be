@@ -1,12 +1,17 @@
 """График за фактуриране (docs/data-model.md §11, docs/api.md §6).
 
-Датите са точно тези от RRULE: без преместване от почивни дни и празници (решение на собственика).
+Датите са от RRULE; ако датата е почивен ден или празник, фактурираме в най-близкия ПРЕДИШЕН работен
+ден (решение на собственика). Две дати могат да се слеят в една.
 """
 
 from datetime import date, datetime, time, timedelta
 
 from dateutil.rrule import rrulestr
 
+from app.domain.dates import previous_working_day
+
+# Една дата от правилото може да се премести назад най-много няколко дни (уикенд + празници).
+_SHIFT_MARGIN = timedelta(days=15)
 _SEARCH_DAYS = 800
 
 _WEEKDAYS_BG = {
@@ -21,12 +26,17 @@ _WEEKDAYS_BG = {
 
 
 def billing_dates(rrule: str, dtstart: date, start: date, end: date) -> list[date]:
-    """Датите за фактуриране в [start, end] (включително)."""
+    """Датите за фактуриране в [start, end] (включително), след връщане от почивни дни."""
     if end < start:
         return []
     rule = rrulestr(rrule, dtstart=datetime.combine(dtstart, time.min))
-    found = rule.between(datetime.combine(start, time.min), datetime.combine(end, time.max), inc=True)
-    return [d.date() for d in found]
+    raw = rule.between(
+        datetime.combine(start, time.min),
+        datetime.combine(end + _SHIFT_MARGIN, time.max),
+        inc=True,
+    )
+    shifted = {previous_working_day(r.date()) for r in raw}
+    return sorted(d for d in shifted if start <= d <= end)
 
 
 def next_billing_date(rrule: str, dtstart: date, today: date) -> date | None:

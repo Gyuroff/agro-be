@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from app.domain.billing import billing_dates, billing_label, next_billing_date, previous_billing_date
+from app.domain.dates import add_working_days, is_working_day, previous_working_day
 from app.domain.money import line_amount, q2, q3, vat
 
 D = Decimal
@@ -28,16 +29,34 @@ def test_weekly_mondays():
     assert got == [date(2026, 11, 2), date(2026, 11, 9), date(2026, 11, 16)]
 
 
-def test_no_shift_for_weekends_and_holidays():
-    # 24.12.2026 (празник) и 28.02.2027 (неделя) остават както са зададени
+def test_working_days():
+    assert not is_working_day(date(2026, 11, 14))  # събота
+    assert not is_working_day(date(2026, 12, 24))  # Бъдни вечер
+    assert not is_working_day(date(2026, 12, 28))  # компенсация за 26.12 (събота)
+    assert is_working_day(date(2026, 11, 16))
+    assert previous_working_day(date(2026, 11, 16)) == date(2026, 11, 16)
+    assert previous_working_day(date(2026, 11, 15)) == date(2026, 11, 13)
+    assert previous_working_day(date(2026, 12, 28)) == date(2026, 12, 23)
+    assert add_working_days(date(2026, 11, 13), 2) == date(2026, 11, 17)
+    assert add_working_days(date(2026, 11, 16), -1) == date(2026, 11, 13)
+    assert add_working_days(date(2026, 11, 14), 0) == date(2026, 11, 14)
+
+
+def test_non_working_day_moves_to_previous_working_day():
+    # сряда е празник → вторник, а ако и той е почивен → още по-назад (не просто „вторник“)
     thu = billing_dates("FREQ=WEEKLY;BYDAY=TH", date(2026, 12, 1), date(2026, 12, 20), date(2026, 12, 31))
-    assert thu == [date(2026, 12, 24), date(2026, 12, 31)]
+    assert thu == [date(2026, 12, 23), date(2026, 12, 31)]  # 24.12 → 23.12
     last = billing_dates("FREQ=MONTHLY;BYMONTHDAY=-1", date(2027, 1, 1), date(2027, 2, 1), date(2027, 3, 5))
-    assert last == [date(2027, 2, 28)]
+    assert last == [date(2027, 2, 26)]  # 28.02.2027 е неделя → петък 26.02
+    # SA и SU се връщат към петък → една дата
     sat_sun = billing_dates(
-        "FREQ=WEEKLY;BYDAY=SA,SU", date(2026, 11, 1), date(2026, 11, 14), date(2026, 11, 15)
+        "FREQ=WEEKLY;BYDAY=SA,SU", date(2026, 11, 1), date(2026, 11, 13), date(2026, 11, 16)
     )
-    assert sat_sun == [date(2026, 11, 14), date(2026, 11, 15)]
+    assert sat_sun == [date(2026, 11, 13)]
+    # ден от правилото след края на прозореца може да се върне вътре в него
+    assert billing_dates(
+        "FREQ=WEEKLY;BYDAY=SA", date(2026, 11, 1), date(2026, 11, 13), date(2026, 11, 13)
+    ) == [date(2026, 11, 13)]
 
 
 def test_next_and_previous():

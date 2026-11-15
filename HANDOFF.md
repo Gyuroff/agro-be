@@ -60,7 +60,6 @@
 
 ## agro-l2v.13 — код готов
 - `app/domain/money.py`, `billing.py`, `tests/unit/test_domain_money_dates_billing.py`; domain 100 %.
-- Решение на собственика: БЕЗ преместване от почивни дни/празници (датите са точно от RRULE); `dates.py` е изтрит. `docs/data-model.md` §11 в agro-app още пише обратното — да се поправи.
+- Решение на собственика: ден за фактуриране в почивен/празничен ден → най-близкия ПРЕДИШЕН работен ден (`app/domain/dates.py`, библиотеката `holidays` за BG вкл. компенсираните дни; външно API не ползваме — Nager.Date пропуска 28.12.2026). `mi_invoice_grace_working_days` пак е в работни дни. Docs в agro-app са обновени.
 - `vat(amount, rate)` — ставката е в проценти (20.00). `next_billing_date` е `>= днес`, `previous_billing_date` е `< днес`.
 
-- Решение: `company_settings.mi_invoice_grace_days` (календарни дни; преименувана от `..._working_days` в миграция 0004 и в docs на agro-app). Работни дни в проекта няма.
