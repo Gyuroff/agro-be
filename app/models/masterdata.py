@@ -52,6 +52,11 @@ class Counterparty(AuditMixin, Base):
             "default_billing_mode IS NULL OR default_billing_mode IN ('per_trip','per_period')",
             name="default_billing_mode",
         ),
+        CheckConstraint(
+            "default_purchase_payment_mode IS NULL OR default_purchase_payment_mode IN "
+            "('prepaid','pay_on_invoice','pay_after_client')",
+            name="default_purchase_payment_mode",
+        ),
         Index(
             "ix_counterparties_name_trgm",
             "name",
@@ -88,6 +93,7 @@ class Counterparty(AuditMixin, Base):
     default_billing_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
     default_billing_rrule: Mapped[str | None] = mapped_column(Text, nullable=True)
     default_payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    default_purchase_payment_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(

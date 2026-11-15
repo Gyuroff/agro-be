@@ -39,7 +39,7 @@
 - `token_hash` добавено в маскираните колони на одита. Тестът за паралелност комитва извън фикстурата и връща `next_number` на `email_ref`.
 
 ## Следва
-- `l2v.5`…`l2v.13`; `l2v.13` и `zmv.1` нямат блокери.
+- `l2v.6`…`l2v.12`; `zmv.1` няма блокери.
 
 ## agro-1k3 (storage) — частично, НЕ е затворена
 - Готово: модел/миграция 0002 `stored_objects`, `app/core/storage.py` (`Storage.save/open/force_upload/retry_local`),
@@ -63,3 +63,14 @@
 - Решение на собственика: ден за фактуриране в почивен/празничен ден → най-близкия ПРЕДИШЕН работен ден (`app/domain/dates.py`, библиотеката `holidays` за BG вкл. компенсираните дни; външно API не ползваме — Nager.Date пропуска 28.12.2026). `mi_invoice_grace_working_days` пак е в работни дни. Docs в agro-app са обновени.
 - `vat(amount, rate)` — ставката е в проценти (20.00). `next_billing_date` е `>= днес`, `previous_billing_date` е `< днес`.
 
+
+## agro-l2v.5 — готово
+- `app/models/contracts.py` (Contract, ContractPrice), миграция `0006`, `app/domain/pricing.py` (`pick_price`, `NoPriceForDate` 422),
+  `app/services/contracts.py` (`validate_contract`, `price_at`), `app/services/contract_metrics.py`, `tests/integration/test_contracts.py`.
+- Добавено в `counterparties`: `default_purchase_payment_mode` (+CHECK) — §6 го изисква, а §5 го няма в таблицата.
+- `contracts.status`/`notes` са взети от §6 (колоните стоят след `contract_fund_movements`, но им принадлежат индексите `(side,status)`).
+- Освен посочените в тикета CHECK-ове има и „само при страна“ за `order_contact_id`, `purchase_payment_mode`, `tracks_customer_credit` и
+  `warehouse_id IS NULL` при sale (§6: „само purchase/sale“, „при sale: NULL“).
+- `contract_fund_movements` НЕ е направена (извън обхвата на тикета; в §6 е с разбъркани колони — виж `bd note`).
+- `metrics`: `_trip_totals` е заглушка (`{}`), докато няма `trips` (l2v.7/T1.7) — там се дописва GROUP BY заявката.
+- В миграцията CHECK върху съществуваща таблица: `op.f(...)` при create, гол суфикс при `drop_constraint` (конвенцията „ck“ иначе удвоява префикса).
