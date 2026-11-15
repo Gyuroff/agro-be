@@ -74,3 +74,25 @@
 - `contract_fund_movements` НЕ е направена (извън обхвата на тикета; в §6 е с разбъркани колони — виж `bd note`).
 - `metrics`: `_trip_totals` е заглушка (`{}`), докато няма `trips` (l2v.7/T1.7) — там се дописва GROUP BY заявката.
 - В миграцията CHECK върху съществуваща таблица: `op.f(...)` при create, гол суфикс при `drop_constraint` (конвенцията „ck“ иначе удвоява префикса).
+
+## agro-l2v.7 — готово
+- `app/domain/plates.py` (100 %), `app/models/trips.py` (ClientRequest, ClientRequestLine, Trip, TripEvent), миграция `0007`,
+  `app/services/trips.py` (TripService: `create_planned`, `create_unplanned`, `complete`, `link_unplanned`, `cancel`),
+  `contract_metrics._trip_totals` вече е истинска GROUP BY заявка (sale и purchase договори), тестове `tests/integration/test_trips.py`.
+- FK НЕ са създадени към още несъществуващи таблици: `client_requests.inbound_email_id/outbound_email_id/agent_run_id`,
+  `trips.supplier_report_line_id/invoice_id`, `trip_events.inbound/outbound_email_id` са голи BIGINT. FK се добавят в миграциите
+  на l2v.6 (имейли), l2v.8 (справки), l2v.9 (agent_runs), l2v.10 (фактури).
+- `create_unplanned` не пише TripEvent: в §8 няма подходящ `kind` за непланиран курс (`linked` и `completed` идват при „Свържи с договор“).
+- Цените се четат ПРЕДИ да се пипне курсът — `NoPriceForDate` (422) не оставя курса наполовина сменен.
+- `TripService` не прави commit и не пише на заявката/линиите (`ClientRequestLine.trip_id`, `RequestService.finalize()` са в br9.6).
+
+## agro-l2v.9 — готово
+- `app/models/cards.py` (ActionCard, AgentRun, PushNotification + StrEnum-и), миграция `0008`, `app/schemas/cards.py`
+  (`PAYLOAD_MODELS[CardKind]`, `extra="forbid"`, пари/тонове → низове в JSON), тестове `tests/integration/test_cards.py`,
+  `tests/unit/test_card_payloads.py` (примерите са преписани от `docs/api.md` §2).
+- FK НЕ са създадени към още несъществуващи таблици: `action_cards.inbound_email_id/outbound_email_id` (l2v.6),
+  `supplier_report_id` (l2v.8), `invoice_id/invoice_comparison_id` (l2v.10), `one_shot_deal_id` (`one_shot_deals` няма тикет за модел —
+  в тикета е само `action_cards`; таблицата от §10 още липсва).
+- `push_notifications.kind` = видовете карти + `send_failed` (P4) + `digest` (P12) — „съществуващите“ в §13 е изведено от `docs/push.md`.
+- `agent_runs`/`push_notifications` са в `AUDIT_EXCLUDED_TABLES` (вече бяха), но имат пълен `AuditMixin`.
+- Миграция 0008 има `# ruff: noqa: E501` (дългите CHECK списъци).

@@ -1,7 +1,7 @@
 """Изчислими показатели на договора (docs/data-model.md §6) — не се пазят в базата.
 
-Курсовете (`trips`) още нямат таблица (agro-l2v.7): докато я няма, `_trip_totals` връща празно и
-изтеглено = `opening_drawn_qty_t`, заявено = 0. Дописва се в T1.7 с една GROUP BY заявка.
+Изтеглено = `opening_drawn_qty_t` + SUM(actual_qty_t) на `completed`; заявено = SUM(planned_qty_t) на
+`planned`; `cancelled` и `unplanned` не се броят.
 """
 
 from collections.abc import Iterable, Mapping
@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.contracts import Contract
+from app.models.trips import Trip, TripStatus
 
 ZERO = Decimal("0.000")
 
@@ -49,8 +51,23 @@ def compute_metrics(
 
 
 def _trip_totals(session: Session, contracts: Iterable[Contract]) -> Mapping[int, TripTotals]:
-    """Курсовете по договорите с ЕДНА заявка (GROUP BY). Таблицата `trips` идва с agro-l2v.7."""
-    return {}
+    """Курсовете по договорите с ЕДНА заявка (GROUP BY). Договорът е продажба или покупка."""
+    ids = [c.id for c in contracts]
+    if not ids:
+        return {}
+    done = func.coalesce(
+        func.sum(case((Trip.status == TripStatus.COMPLETED.value, Trip.actual_qty_t), else_=0)), 0
+    )
+    planned = func.coalesce(
+        func.sum(case((Trip.status == TripStatus.PLANNED.value, Trip.planned_qty_t), else_=0)), 0
+    )
+    totals: dict[int, TripTotals] = {}
+    for column in (Trip.sale_contract_id, Trip.purchase_contract_id):
+        rows = session.execute(select(column, done, planned).where(column.in_(ids)).group_by(column)).all()
+        for contract_id, completed_t, planned_t in rows:
+            if contract_id is not None:
+                totals[contract_id] = TripTotals(Decimal(completed_t), Decimal(planned_t))
+    return totals
 
 
 def metrics_for(session: Session, contracts: Iterable[Contract]) -> dict[int, ContractMetrics]:

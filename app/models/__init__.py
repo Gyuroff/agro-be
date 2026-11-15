@@ -1,15 +1,21 @@
 """Импортът на всички модели регистрира таблиците в Base.metadata (Alembic autogenerate)."""
 
 from app.models.audit import AuditLog
+from app.models.cards import ActionCard, AgentRun, PushNotification
 from app.models.company import CompanySettings, NumberSequence
 from app.models.contracts import Contract, ContractPrice
 from app.models.identity import Actor, Device, RefreshToken, User
 from app.models.masterdata import Contact, Counterparty, CounterpartyDomain, Product, Warehouse
 from app.models.storage import StoredObject
+from app.models.trips import ClientRequest, ClientRequestLine, Trip, TripEvent
 
 __all__ = [
+    "ActionCard",
     "Actor",
+    "AgentRun",
     "AuditLog",
+    "ClientRequest",
+    "ClientRequestLine",
     "CompanySettings",
     "Contact",
     "Contract",
@@ -19,8 +25,11 @@ __all__ = [
     "Device",
     "NumberSequence",
     "Product",
+    "PushNotification",
     "RefreshToken",
     "StoredObject",
+    "Trip",
+    "TripEvent",
     "User",
     "Warehouse",
 ]
