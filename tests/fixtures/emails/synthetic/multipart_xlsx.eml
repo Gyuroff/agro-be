@@ -1,0 +1,31 @@
+Authentication-Results: mx.test; spf=pass smtp.mailfrom=agrotrade.example;
+ dkim=pass header.d=agrotrade.example; dmarc=pass
+ header.from=agrotrade.example
+From:
+ =?utf-8?b?0JzQsNGA0LjRjyDQk9C10L7RgNCz0LjQtdCy0LA=?= <Maria@AgroTrade.example>
+To: orders@agroimport.example,
+ =?utf-8?b?0JLRgtC+0YDQuA==?= <two@agroimport.example>
+Cc: cc@agrotrade.example
+Subject: =?utf-8?b?0JrQsNC80LjQvtC90Lgg0YHQtdC00LzQuNGG0LA=?= 47
+Date: Mon, 16 Nov 2026 10:15:00 +0200
+Message-ID: <m2@agrotrade.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============8629725102373527183=="
+
+--===============8629725102373527183==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Приложено е.
+
+--===============8629725102373527183==
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*0*=utf-8''%D0%9A%D0%B0%D0%BC%D0%B8%D0%BE%D0%BD%D0%B8_%D1%81%D0%B5;
+ filename*1*=%D0%B4%D0%BC%D0%B8%D1%86%D0%B0_47.xlsx
+MIME-Version: 1.0
+
+UEsDBGZha2UteGxzeA==
+
+--===============8629725102373527183==--

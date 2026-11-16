@@ -1,0 +1,14 @@
+Authentication-Results: evil.example; spf=pass; dkim=pass; dmarc=pass
+From:
+ =?utf-8?b?0JzQsNGA0LjRjyDQk9C10L7RgNCz0LjQtdCy0LA=?= <Maria@AgroTrade.example>
+To: orders@agroimport.example,
+ =?utf-8?b?0JLRgtC+0YDQuA==?= <two@agroimport.example>
+Cc: cc@agrotrade.example
+Subject: =?utf-8?b?0KfRg9C20LQ=?= authserv-id
+Date: Mon, 16 Nov 2026 10:15:00 +0200
+Message-ID: <m6@agrotrade.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Подправен хедър.

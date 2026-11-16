@@ -1,0 +1,15 @@
+Authentication-Results: mx.test; spf=pass smtp.mailfrom=agrotrade.example;
+ dkim=pass header.d=agrotrade.example; dmarc=pass
+ header.from=agrotrade.example
+From:
+ =?utf-8?b?0JzQsNGA0LjRjyDQk9C10L7RgNCz0LjQtdCy0LA=?= <Maria@AgroTrade.example>
+To: orders@agroimport.example,
+ =?utf-8?b?0JLRgtC+0YDQuA==?= <two@agroimport.example>
+Cc: cc@agrotrade.example
+Subject: =?utf-8?b?0JHQtdC3?= Message-ID
+Date: Mon, 16 Nov 2026 10:15:00 +0200
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Няма идентификатор.

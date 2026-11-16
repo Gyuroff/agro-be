@@ -1,0 +1,17 @@
+Authentication-Results: mx.test; spf=pass smtp.mailfrom=agrotrade.example;
+ dkim=pass header.d=agrotrade.example; dmarc=pass
+ header.from=agrotrade.example
+From:
+ =?utf-8?b?0JzQsNGA0LjRjyDQk9C10L7RgNCz0LjQtdCy0LA=?= <Maria@AgroTrade.example>
+To: orders@agroimport.example,
+ =?utf-8?b?0JLRgtC+0YDQuA==?= <two@agroimport.example>
+Cc: cc@agrotrade.example
+Subject: =?utf-8?b?0KHQsNC80L4=?= HTML
+Date: Mon, 16 Nov 2026 10:15:00 +0200
+Message-ID: <m3@agrotrade.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PHN0eWxlPnB7fTwvc3R5bGU+PGJvZHk+PHA+0JfQtNGA0LDQstC10LnRgtC1PC9wPjxw
+PtCi0L7QstCw0YDQuNC8IDxiPtGD0YLRgNC1PC9iPjwvcD48L2JvZHk+PC9odG1sPg0K
