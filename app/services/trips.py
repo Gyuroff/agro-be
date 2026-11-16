@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core import clock
 from app.core.errors import DomainError
 from app.domain.plates import format_plate, normalize_plate
-from app.models.contracts import Contract
+from app.models.contracts import Contract, ContractSide
 from app.models.masterdata import Counterparty
 from app.models.trips import (
     CancelSource,
@@ -227,6 +227,18 @@ class TripService:
         _event(self.session, trip, TripEventKind.CANCELLED, text)
         self.session.flush()
         return trip
+
+    def link_to_contract(self, trip: Trip, sale_contract_id: int) -> Trip:
+        """`link_unplanned` по id на продажния договор; покупният е `supply_contract` на продажния."""
+        sale = self.session.get(Contract, sale_contract_id)
+        if sale is None:
+            raise DomainError("not_found", "Договорът не е намерен.", http_status=404)
+        if sale.side != ContractSide.SALE.value or sale.product_id != trip.product_id:
+            raise DomainError("validation_error", "Договорът не е продажба на същата стока.", 400)
+        purchase = self.session.get(Contract, sale.supply_contract_id) if sale.supply_contract_id else None
+        if purchase is None:
+            raise DomainError("validation_error", "Договорът няма насрещен договор за покупка.", 400)
+        return self.link_unplanned(trip, sale_contract=sale, purchase_contract=purchase)
 
     def _prices(
         self, sale_contract_id: int, purchase_contract_id: int, load_date: date

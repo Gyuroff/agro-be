@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm.exc import StaleDataError
 
 
 class DomainError(Exception):
@@ -48,6 +49,14 @@ async def _validation_error_handler(_: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _stale_data_handler(_: Request, __: Exception) -> JSONResponse:
+    return JSONResponse(
+        error_body("version_conflict", "Записът е променен от друг. Обновете и опитайте пак."),
+        status_code=409,
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(StaleDataError, _stale_data_handler)
     app.add_exception_handler(DomainError, _domain_error_handler)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
