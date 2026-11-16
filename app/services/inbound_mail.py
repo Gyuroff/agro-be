@@ -16,7 +16,7 @@ from app.agents.email_classifier.graph import AGENT as CLASSIFIER
 from app.agents.email_classifier.graph import build_graph, decide
 from app.agents.email_classifier.prompts import PROMPT_VERSION
 from app.agents.email_classifier.schemas import ClassifierOutput
-from app.agents.inputs import clean_email_text, xlsx_to_tsv
+from app.agents.inputs import clean_email_text, date_window, xlsx_to_tsv
 from app.core import clock
 from app.mail.matching import MatchResult, match_sender
 from app.models.cards import CardKind
@@ -99,13 +99,13 @@ def _outbound_id(session: Session, email: InboundEmail) -> int | None:
     return None
 
 
-def _classifier_input(session: Session, email: InboundEmail) -> dict[str, Any]:
+def email_agent_input(session: Session, email: InboundEmail) -> dict[str, Any]:
     attachments: list[dict[str, str]] = []
     for att in session.scalars(select(EmailAttachment).where(EmailAttachment.inbound_email_id == email.id)):
         item = {"name": att.filename}
         if att.filename.lower().endswith(".xlsx"):
             try:
-                item["tsv"] = xlsx_to_tsv(att.storage_path)
+                item["tsv"] = xlsx_to_tsv(att.storage_path, window=date_window(email.received_at.date()))
             except Exception:  # повреден файл не бива да спира обработката; агентът го вижда само по името
                 log.warning("xlsx %s на писмо %s не се чете", att.filename, email.id)
         attachments.append(item)
@@ -124,7 +124,7 @@ def _classify(session: Session, email: InboundEmail) -> bool:
         CLASSIFIER,
         ("inbound_emails", email.id),
         build_graph(),
-        _classifier_input(session, email),
+        email_agent_input(session, email),
         PROMPT_VERSION,
     )
     if not outcome.ok or not isinstance(outcome.output, ClassifierOutput):
@@ -182,3 +182,6 @@ def _run(session: Session, email: InboundEmail) -> InboundStatus:
         return InboundStatus.NEEDS_ACTION
     with session.begin_nested():  # недовършените записи на агента не оцеляват
         return handler(session, email)
+
+
+from app.services import request_intake  # noqa: E402,F401  (регистрира обработчика на `request`)
