@@ -102,3 +102,34 @@ def test_pdf_text_empty_without_text_layer(tmp_path: Path) -> None:
     with path.open("wb") as f:
         writer.write(f)
     assert pdf_text(path) == ""
+
+
+def test_xlsx_window_keeps_headers_and_week_rows_of_big_file(tmp_path: Path) -> None:
+    from datetime import date
+
+    from openpyxl import Workbook
+
+    from app.agents.inputs import date_window
+
+    wb = Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.append(["Заявка", None, "Клиент", None, "Количество", "Транспорт", "Дата на изпълнение"])
+    ws.append(["№", "Дата", "Ферма", "Фирма", None, None, None, None, "Място на товарене"])
+    for i in range(1, 1500):  # 1499 стари реда, както в реалния файл
+        ws.append([i, date(2022, 9, 15), "Ферма", "Клиент", 21820, "не", date(2022, 9, 20)])
+    ws.append(
+        [1500, date(2026, 11, 8), "Глоджево", "Пилко", "24т", None, date(2026, 11, 16), None, "транспорт Ива"]
+    )
+    ws.append([1501, date(2026, 11, 8), "Беловец", "Пилко", "24т", None, date(2026, 11, 17)])
+    ws.append([1502, date(2026, 11, 8), "Далечен", "Пилко", "24т", None, date(2027, 3, 1)])
+    path = tmp_path / "big.xlsx"
+    wb.save(path)
+
+    tsv = xlsx_to_tsv(path, window=date_window(date(2026, 11, 11)))
+    lines = tsv.split("\n")
+    assert lines[0] == "# Sheet" and "Дата на изпълнение" in lines[1] and lines[2].startswith("№")
+    assert [ln.split("\t")[2] for ln in lines[3:]] == ["Глоджево", "Беловец"]
+    assert "транспорт Ива" in tsv
+
+    assert xlsx_to_tsv(path, max_rows=10).count("\n") == 10  # без прозорец — както преди

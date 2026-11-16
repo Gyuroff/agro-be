@@ -4,7 +4,7 @@
 """
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,10 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 
 MAX_XLSX_ROWS = 500
+EXEC_DATE_HEADER = "дата на изпълнение"
+HEADER_ROWS = (
+    5  # в първите толкова реда се търси заглавието; редове без дата до толкова след него са подзаглавия
+)
 
 
 def _cell(value: Any) -> str:
@@ -28,10 +32,44 @@ def _cell(value: Any) -> str:
     return re.sub(r"[\t\r\n]+", " ", str(value)).strip()
 
 
-def xlsx_to_tsv(path: str | Path, max_rows: int = MAX_XLSX_ROWS) -> str:
+def date_window(received: date, before_days: int = 0, after_days: int = 28) -> tuple[date, date]:
+    """Прозорец на „Дата на изпълнение“ спрямо датата на писмото: заявките са за предстоящи дни."""
+    return received - timedelta(days=before_days), received + timedelta(days=after_days)
+
+
+def _exec_date_column(cells: list[str]) -> int | None:
+    for i, cell in enumerate(cells):
+        if cell.strip().casefold() == EXEC_DATE_HEADER:
+            return i
+    return None
+
+
+def _in_window(cells: list[str], col: int, window: tuple[date, date]) -> bool:
+    try:
+        day = date.fromisoformat(cells[col][:10])
+    except (IndexError, ValueError):
+        return False
+    return window[0] <= day <= window[1]
+
+
+def _keep(cells: list[str], col: int, window: tuple[date, date], n: int, header_n: int) -> bool:
+    """Ред след заглавието: с дата — по прозореца; без дата — само подзаглавие веднага след заглавието."""
+    try:
+        date.fromisoformat(cells[col][:10])
+    except (IndexError, ValueError):
+        return n < header_n + HEADER_ROWS
+    return _in_window(cells, col, window)
+
+
+def xlsx_to_tsv(
+    path: str | Path, max_rows: int = MAX_XLSX_ROWS, window: tuple[date, date] | None = None
+) -> str:
     """Видимите листове като TSV; празните редове отпадат; общо най-много `max_rows` реда с данни.
 
     Всеки лист е предшестван от ред `# <име>`. Формулите се четат със записаните им стойности.
+    `window`: работните файлове растат с години (1474 реда), а седмицата е най-долу. Ако в първите
+    `HEADER_ROWS` реда има колона „Дата на изпълнение“, остават заглавните редове и редовете с дата в
+    прозореца. Без такава колона листът се чете както преди (първите `max_rows` реда).
     """
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
@@ -41,11 +79,18 @@ def xlsx_to_tsv(path: str | Path, max_rows: int = MAX_XLSX_ROWS) -> str:
             if ws.sheet_state != "visible" or rows >= max_rows:
                 continue
             out.append(f"# {ws.title}")
-            for row in ws.iter_rows(values_only=True):
+            col: int | None = None
+            header_n = 0
+            for n, row in enumerate(ws.iter_rows(values_only=True)):
                 cells = [_cell(v) for v in row]
                 while cells and not cells[-1]:
                     cells.pop()
                 if not cells:
+                    continue
+                if window is not None and col is None and n < HEADER_ROWS:
+                    col = _exec_date_column(cells)
+                    header_n = n
+                elif window is not None and col is not None and not _keep(cells, col, window, n, header_n):
                     continue
                 out.append("\t".join(cells))
                 rows += 1
