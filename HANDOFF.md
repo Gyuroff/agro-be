@@ -114,3 +114,10 @@
 - Настройки: `APP_LLM_MODEL_<AGENT>` / `APP_LLM_EFFORT_*` в `Settings` (Haiku по подразбиране за classifier и cancellation). `effort` се подава на
   `ChatAnthropic` (поле `reasoning_effort`, псевдоним `effort`). Проверен с реалното API (`scripts/llm_smoke.py`, Haiku и Sonnet). `temperature` НЕ се подава: новите модели връщат 400 „Extra inputs are not permitted“ (тикетът го изискваше).
 - Токените се събират с `UsageMetadataCallbackHandler`; stub → 0.
+
+## agro-6p5.3 — готово (без бектеста)
+- `app/agents/email_classifier/` (`schemas.py`, `prompts.py` — `email_classifier@1`, `graph.py`: `build_graph()`, `decide()`), тестове `tests/integration/test_email_classifier.py`.
+- Вход: `{from_address, subject, body_text (изчистен), attachments: [{name, tsv?}]}`; тялото се реже на 4000 знака, TSV на 30 реда в `render_user`.
+- `decide()`: confidence < 0.7 → `kind=other`, `uncertain=True`, причина „несигурен вид“. Картата `unknown_sender` я вдига `mail.process_email` (ha8.5) — payload-ът няма поле за причина (`extra=forbid`), не е измислено.
+- Fixtures: случаите са в `tests/fixtures/classifier/cases.json`; `PYTHONPATH=. uv run python scripts/gen_classifier_fixtures.py` ги прави в `tests/fixtures/llm/email_classifier/` (sha1 зависи от промпта — пускай след всяка промяна му).
+- Бектест ≥95 % върху D-SAMPLES НЕ е направен: няма реални примери; влиза в 6p5.9 (eval harness).
