@@ -89,6 +89,7 @@ class InvoiceDueLine(_Payload):
 
 class InvoiceDuePayload(_Payload):
     invoice_id: int
+    invoice_version: int
     period_from: date
     period_to: date
     schedule_label: str

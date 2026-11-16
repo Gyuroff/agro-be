@@ -1,7 +1,7 @@
 """CardService, действия по карти и GET /dashboard (agro-br9.1)."""
 
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -307,3 +307,19 @@ def test_dashboard_empty(api: TestClient, auth: dict[str, str]) -> None:
     body = api.get("/api/v1/dashboard", headers=auth).json()
     assert body["cards"] == [] and body["last_mail_check_at"] is None
     assert body["trips_today"] == {"count": 0, "planned_qty_t": "0", "items": []}
+
+
+def test_mailbox_alarm_can_be_hidden(
+    api: TestClient, auth: dict[str, str], db_session: Session, audit_ctx: AuditContext
+) -> None:
+    card, _ = CardService.create_or_get(
+        db_session,
+        CardKind.MAILBOX_ALARM,
+        title="Пощата мълчи",
+        payload=MailboxAlarmPayload(last_ok_at=datetime(2026, 11, 12, 8, 43, tzinfo=UTC), minutes=75),
+        dedupe_key="mailbox_alarm",
+    )
+    db_session.flush()
+    assert api.post(f"/api/v1/cards/{card.id}/actions/hide", headers=auth).status_code == 200
+    db_session.refresh(card)
+    assert (card.status, card.resolution) == ("dismissed", "hidden")

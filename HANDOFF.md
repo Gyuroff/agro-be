@@ -244,3 +244,14 @@
 - Частично изпращане: `send` праща само редовете с доставчик, които не са в `queued`/`sent` писмо (`RequestService.sent_line_ids`, по статуса на `outbound_emails`); заявката е `queued` и картата `done` само когато няма ред без склад, иначе `draft`/`open`. Изпратен ред не се редактира/маха (409).
 - `undo_token` вече носи `outbound_email_ids` (на това „Изпрати“); undo връща само тях. Стари токени (с `outbound_email_id`) не важат.
 - `preview.emails[]` няма version/line_ids (не са поискани).
+
+## agro-sw1 (call_phone) + GET /emails/{id} от agro-br9.9 — готово
+- `app/api/routers/emails.py`, `app/schemas/emails.py`, `app/services/email_views.py` (`get_email`, `sender_phone`), `tests/integration/test_email_api.py` (4).
+- `call_phone`: `contact.phone` на писмото, иначе `counterparty.phone`, иначе null. Само входящи писма; вариантът за изходящо писмо с обект `reply` (api.md §3) НЕ е направен.
+- Мои интерпретации (спецификацията не ги дава): `match_label` = „<име> · контакт|домейн|нишка|код в темата|ръчно“ по `match_method`; `rows` на xlsx се смята при четене
+  (няма колона; празните редове и заглавният не се броят; нечетим файл → null); `uncertain` се строи от `uncertain_fields`/`uncertain_note` на редовете на заявката
+  („Шофьор на СВ 7890 ТР“); `agent_notes` = `client_requests.agent_notes` (за справки още няма).
+- `GET /attachments/{id}` готов (FileResponse от `storage_path`, липсващ файл → 404). agro-br9.9 затворена; `reply` и agent_notes за справки са във нови задачи (виж bd).
+
+## agro-e42 — готово
+- `InvoiceDuePayload.invoice_version` (app/schemas/cards.py), примерът в tests/unit/test_card_payloads.py е по api.md §2. `hide` за `mailbox_alarm` вече беше в `HIDE_KINDS`; добавен тест. Карти `invoice_due` още никой не създава (идва с agro-66f.1) — там трябва да се подава версията. Бутонът `issue` с `invoice_version` е на agro-66f.2.
