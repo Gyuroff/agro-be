@@ -68,3 +68,14 @@ def test_dispatch_after_commit(db_session: Session, audit_ctx: AuditContext) -> 
     email_id = ingest_raw_email(_raw("html_only.eml"), "test", session=db_session, dispatch=sent.append)
     db_session.commit()
     assert sent == [email_id]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="agro-ha8.5 още не е регистрирала mail.process_email; махни този маркер, когато я добави",
+)
+def test_process_email_task_is_registered() -> None:
+    from app.mail.ingest import PROCESS_TASK_NAME
+    from app.workers.celery_app import celery_app
+
+    assert PROCESS_TASK_NAME in celery_app.tasks

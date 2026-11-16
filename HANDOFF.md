@@ -145,3 +145,9 @@
 - inbound ↔ outbound са във взаимна зависимост: FK `inbound_emails.replies_to_outbound_id` е с `use_alter=True` и в миграцията се създава след двете таблици (autogenerate я слагаше в `create_table` → щеше да гърмне).
 - `mailbox_polls` вече беше в `AUDIT_EXCLUDED_TABLES`; `email_attachments` е с „точно едно“ CHECK (`<>` върху двете IS NOT NULL).
 - ВЪПРОС (в `bd note`): `app/mail/storage.py` (локален диск, `raw_path`) дублира `app/core/storage.py` (S3 първо + `stored_objects`, architecture §11). Направен е по тикета; ha8.1 да реши кой от двата ползва за `.eml`/прикачени.
+
+## Отворено от agro-ha8.1 — трябва да се затвори в agro-ha8.5
+- `mail.process_email` още не съществува: `ingest_raw_email` само логва, писмата остават `status=new`.
+  Пазачи: `bd note` на agro-ha8.5 и strict-xfail тест `test_process_email_task_is_registered`
+  (гърми с XPASS, когато задачата се регистрира — махни маркера и тествай `.delay`).
+- Писма, приети преди ha8.5, остават `new` и трябва да се дообработят.
