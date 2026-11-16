@@ -14,7 +14,7 @@
    "input": {"from_address": "office@agro-fermer.bg", "subject": "Отказ",
      "body_text": "Отказваме курса от четвъртък - камионът няма да дойде.", "attachments": []}},
   {"name": "mi_invoice", "expected": "mi_invoice", "confidence": 0.97,
-   "reason": "Прикачена е фактура от Microinvest с номер и редове.",
+   "reason": "Прикачена е фактура от Мега с номер и редове.",
    "input": {"from_address": "invoices@supplier.bg", "subject": "Фактура 0000123",
      "body_text": "Моля, вижте приложената фактура.", "attachments": [{"name": "faktura-0000123.pdf"}]}},
   {"name": "other", "expected": "other", "confidence": 0.88,

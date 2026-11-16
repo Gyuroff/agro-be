@@ -129,7 +129,7 @@
 - Домейнът е торове/фуражи/пелети (КАН, УАН, фуражовози), не зърно. Кутиите се препращат една към друга → дублиране по `Message-ID` (ha8.1).
 - В реалната поща НЯМА входящи откази на курсове (`АНУЛИРАНЕ` са изходящи за УНП) → `cancellation` остава само синтетичен.
 - Етикетите в `real_cases.json` са мои преценки (`label_verified=false`), собственикът да ги потвърди. Особено: фактури PDF → `mi_invoice`
-  (не е ясно кои са от Microinvest), проформа → `other`, xlsx „Raboten fail“ на клиент → `request`.
+  (не е ясно кои са от Мега), проформа → `other`, xlsx „Raboten fail“ на клиент → `request`.
 - Промптът е `email_classifier@2` (описания по реалните примери). Eval с реален Haiku (`PYTHONPATH=. APP_LLM_PROVIDER=anthropic uv run python
   scripts/eval_classifier.py`): 23/24; единствената грешка — само „ФАКТУРА“+PDF, увереност 0.60 → `other` по правилото.
 - Word-HTML писма (напр. „справка КАН“) имат XML боклук (`w:LatentStyles`) и в text/plain → `clean_email_text` не го маха; да се реши в ha8.1/inputs.
