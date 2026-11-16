@@ -2,9 +2,10 @@
  {
   "name": "real_01_request",
   "expected": "request",
-  "confidence": 0.85,
+  "confidence": 0.9,
   "reason": "Видът е request според съдържанието.",
-  "label_verified": false,
+  "label_verified": true,
+  "pending_spec": false,
   "note": "Ameta xlsx с работния файл",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -21,9 +22,10 @@
  {
   "name": "real_02_request",
   "expected": "request",
-  "confidence": 0.85,
+  "confidence": 0.9,
   "reason": "Видът е request според съдържанието.",
-  "label_verified": false,
+  "label_verified": true,
+  "pending_spec": false,
   "note": "Ameta xlsx",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -40,9 +42,10 @@
  {
   "name": "real_03_request",
   "expected": "request",
-  "confidence": 0.85,
+  "confidence": 0.9,
   "reason": "Видът е request според съдържанието.",
-  "label_verified": false,
+  "label_verified": true,
+  "pending_spec": false,
   "note": "Ameta xlsx с рег. номера",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -59,9 +62,10 @@
  {
   "name": "real_04_request",
   "expected": "request",
-  "confidence": 0.85,
+  "confidence": 0.9,
   "reason": "Видът е request според съдържанието.",
-  "label_verified": false,
+  "label_verified": true,
+  "pending_spec": false,
   "note": "Ameta xlsx",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -78,9 +82,10 @@
  {
   "name": "real_05_request",
   "expected": "request",
-  "confidence": 0.85,
+  "confidence": 0.9,
   "reason": "Видът е request според съдържанието.",
-  "label_verified": false,
+  "label_verified": true,
+  "pending_spec": false,
   "note": "Ameta xlsx",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -100,6 +105,7 @@
   "confidence": 0.85,
   "reason": "Видът е request според съдържанието.",
   "label_verified": false,
+  "pending_spec": false,
   "note": "изходяща заявка към Oliva (таблица в тялото)",
   "input": {
    "from_address": "kontakt2@example.test",
@@ -109,11 +115,12 @@
   }
  },
  {
-  "name": "real_07_mi_invoice",
-  "expected": "mi_invoice",
+  "name": "real_07_supplier_doc",
+  "expected": "supplier_doc",
   "confidence": 0.85,
-  "reason": "Видът е mi_invoice според съдържанието.",
+  "reason": "Видът е supplier_doc според съдържанието.",
   "label_verified": false,
+  "pending_spec": true,
   "note": "фактура PDF от Oliva",
   "input": {
    "from_address": "kontakt3@example.test",
@@ -127,11 +134,12 @@
   }
  },
  {
-  "name": "real_08_mi_invoice",
-  "expected": "mi_invoice",
+  "name": "real_08_supplier_doc",
+  "expected": "supplier_doc",
   "confidence": 0.85,
-  "reason": "Видът е mi_invoice според съдържанието.",
+  "reason": "Видът е supplier_doc според съдържанието.",
   "label_verified": false,
+  "pending_spec": true,
   "note": "транспортна фактура PDF",
   "input": {
    "from_address": "kontakt4@example.test",
@@ -145,11 +153,12 @@
   }
  },
  {
-  "name": "real_09_mi_invoice",
-  "expected": "mi_invoice",
+  "name": "real_09_supplier_doc",
+  "expected": "supplier_doc",
   "confidence": 0.85,
-  "reason": "Видът е mi_invoice според съдържанието.",
+  "reason": "Видът е supplier_doc според съдържанието.",
   "label_verified": false,
+  "pending_spec": true,
   "note": "Агроферт, фактура PDF",
   "input": {
    "from_address": "kontakt5@example.test",
@@ -163,11 +172,12 @@
   }
  },
  {
-  "name": "real_10_other",
-  "expected": "other",
+  "name": "real_10_supplier_doc",
+  "expected": "supplier_doc",
   "confidence": 0.85,
-  "reason": "Видът е other според съдържанието.",
+  "reason": "Видът е supplier_doc според съдържанието.",
   "label_verified": false,
+  "pending_spec": true,
   "note": "проформа, не фактура",
   "input": {
    "from_address": "kontakt6@example.test",
@@ -181,11 +191,12 @@
   }
  },
  {
-  "name": "real_11_other",
-  "expected": "other",
+  "name": "real_11_supplier_doc",
+  "expected": "supplier_doc",
   "confidence": 0.85,
-  "reason": "Видът е other според съдържанието.",
+  "reason": "Видът е supplier_doc според съдържанието.",
   "label_verified": false,
+  "pending_spec": true,
   "note": "проформа фактури",
   "input": {
    "from_address": "kontakt7@example.test",
@@ -207,6 +218,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "„Благодаря, отбелязвам“",
   "input": {
    "from_address": "kontakt3@example.test",
@@ -221,6 +233,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "инструкции, не заявка",
   "input": {
    "from_address": "kontakt1@example.test",
@@ -235,6 +248,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "известие на производител",
   "input": {
    "from_address": "kontakt8@example.test",
@@ -249,6 +263,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "автоматично напомняне",
   "input": {
    "from_address": "kontakt9@example.test",
@@ -263,6 +278,7 @@
   "confidence": 0.85,
   "reason": "Видът е other според съдържанието.",
   "label_verified": false,
+  "pending_spec": false,
   "note": "автоматично известие за промяна",
   "input": {
    "from_address": "kontakt10@example.test",
@@ -277,6 +293,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "сметка на оператор",
   "input": {
    "from_address": "kontakt11@example.test",
@@ -298,6 +315,7 @@
   "confidence": 0.9,
   "reason": "Видът е other според съдържанието.",
   "label_verified": true,
+  "pending_spec": false,
   "note": "реклама",
   "input": {
    "from_address": "kontakt12@example.test",

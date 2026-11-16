@@ -18,6 +18,9 @@ def main() -> None:
         for c in json.loads(f.read_text(encoding="utf-8")):
             out = graph.invoke({"input": c["input"]})["output"]
             d = decide(out)
+            if c.get("pending_spec"):
+                print(f"-- {c['name']:28} чака спецификацията; модел={out.kind.value} {out.confidence:.2f}")
+                continue
             hit = d.kind.value == c["expected"]
             ok, total = ok + hit, total + 1
             flag = "" if c.get("label_verified", True) else " (етикет непотвърден)"

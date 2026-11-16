@@ -20,6 +20,8 @@ def main() -> None:
     for case in [
         c for f in sorted(CASES_DIR.glob("*cases.json")) for c in json.loads(f.read_text(encoding="utf-8"))
     ]:
+        if case.get("pending_spec"):
+            continue
         path = stub.fixture_path(build_messages(case["input"]))
         path.parent.mkdir(parents=True, exist_ok=True)
         body = {
