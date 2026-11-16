@@ -191,3 +191,9 @@
 - `/dashboard`: „курсове днес“ не включва `cancelled` (спецификацията не казва — мое решение); `route` е long и за курс без клиент е само „Склад X, Склад“ без „→“. `short` още не е описан → същото като long.
 - Допълнено по бележката на задачата: `inbound_email_id` в supplier_report payload, `warehouse_name` в substitutes. `invoice_version` за invoice_due → agro-e42.
 - Критерият „сийда от T1.12“ не е изпълним (l2v.12 е отворена): тестът на таблото строи данните сам.
+
+## agro-ha8.4 — готово
+- `app/mail/smtp.py` (build_message/send), `app/services/outbound.py` (create_draft, queue, send_now, mark_failed, куки `register_before_send` / `register_on_send_failed`), задача `mail.send_outbound` в `app/workers/tasks/mail.py` (актьор `system:scheduler`, без нова миграция), `tests/integration/test_mail_send.py`.
+- Кукичето за заявки (`RequestService.finalize`) и пушът `send_failed` (T8.1) още не са закачени — регистрират се през куките. Планирането с `eta=send_after` е за извикващия (`queue` само слага `send_after`).
+- Грешка → `failed` + отваряне на свързаните карти (`outbound_email_id`); картата не се създава наново.
+- GreenMail: логинът за IMAP е пълният адрес на получателя.
