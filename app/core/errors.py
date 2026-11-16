@@ -15,11 +15,14 @@ from sqlalchemy.orm.exc import StaleDataError
 class DomainError(Exception):
     """Бизнес грешка. Кодовете са в docs/api.md §0; съобщението е на български."""
 
-    def __init__(self, code: str, message_bg: str, http_status: int = 400) -> None:
+    def __init__(
+        self, code: str, message_bg: str, http_status: int = 400, fields: dict[str, str] | None = None
+    ) -> None:
         super().__init__(code)
         self.code = code
         self.message_bg = message_bg
         self.http_status = http_status
+        self.fields = fields
 
 
 def error_body(code: str, message: str, fields: dict[str, str] | None = None) -> dict[str, Any]:
@@ -37,7 +40,7 @@ def _field_name(loc: Sequence[Any]) -> str:
 
 async def _domain_error_handler(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
-    return JSONResponse(error_body(exc.code, exc.message_bg), status_code=exc.http_status)
+    return JSONResponse(error_body(exc.code, exc.message_bg, exc.fields), status_code=exc.http_status)
 
 
 async def _validation_error_handler(_: Request, exc: Exception) -> JSONResponse:

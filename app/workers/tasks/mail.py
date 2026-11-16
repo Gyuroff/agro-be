@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.db import session as db_session
 from app.mail.ingest import ACTOR_CODE, PROCESS_TASK_NAME, dispatch_process_email, ingest_raw_email
 from app.services import inbound_mail, mailbox, outbound
+from app.services import requests as _requests  # noqa: F401  (регистрира куката finalize)
 from app.workers.audited import audited_task
 from app.workers.celery_app import celery_app
 

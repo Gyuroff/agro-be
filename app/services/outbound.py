@@ -2,10 +2,10 @@
 
 import logging
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.core import clock
@@ -137,3 +137,37 @@ def notify_send_failed(outbound_id: int) -> None:
             hook(outbound_id)
         except Exception:
             log.exception("on_send_failed hook failed for outbound %s", outbound_id)
+
+
+_SEND_PENDING_KEY = "pending_send_outbound"
+
+
+def dispatch_send_outbound(outbound_id: int, eta: datetime | None) -> None:
+    """Пуска `mail.send_outbound` с `eta` (регистрира се от `app.workers.tasks.mail`)."""
+    from app.workers.celery_app import celery_app
+    from app.workers.tasks import mail as _mail_tasks
+
+    celery_app.tasks[_mail_tasks.SEND_TASK_NAME].apply_async((outbound_id,), eta=eta)
+
+
+def schedule_send(session: Session, outbound: OutboundEmail) -> None:
+    """Планира `mail.send_outbound` за `send_after`, но СЛЕД commit (иначе задачата не вижда писмото)."""
+    session.info.setdefault(_SEND_PENDING_KEY, []).append((outbound.id, outbound.send_after))
+
+
+def _send_after_commit(session: Session) -> None:
+    for outbound_id, eta in session.info.pop(_SEND_PENDING_KEY, []):
+        try:
+            dispatch_send_outbound(outbound_id, eta)
+        except Exception:
+            log.exception("не успях да планирам изпращането на писмо %s", outbound_id)
+
+
+def _send_after_rollback(session: Session) -> None:
+    session.info.pop(_SEND_PENDING_KEY, None)
+
+
+if not event.contains(Session, "after_commit", _send_after_commit):
+    event.listen(Session, "after_commit", _send_after_commit)
+if not event.contains(Session, "after_rollback", _send_after_rollback):
+    event.listen(Session, "after_rollback", _send_after_rollback)
