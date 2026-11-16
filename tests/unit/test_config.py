@@ -8,11 +8,11 @@ def test_settings_from_env() -> None:
     settings = get_settings()
     assert settings.env is Env.TEST
     assert settings.llm_provider is LlmProvider.STUB
-    assert settings.jwt_secret.get_secret_value() == "test-jwt-secret"
+    assert settings.jwt_secret.get_secret_value() == "test-jwt-secret-0123456789-abcdefghijklmnop"
 
 
 def test_secrets_are_masked() -> None:
-    assert "test-jwt-secret" not in repr(get_settings())
+    assert "test-jwt-secret-0123456789-abcdefghijklmnop" not in repr(get_settings())
 
 
 def test_empty_value_is_treated_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,15 +1,9 @@
 """Потребители (docs/data-model.md §1, §3)."""
 
-from argon2 import PasswordHasher
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.models.identity import Actor, ActorKind, User
-
-_hasher = PasswordHasher()
-
-
-def hash_password(password: str) -> str:
-    return _hasher.hash(password)
 
 
 class UserService:

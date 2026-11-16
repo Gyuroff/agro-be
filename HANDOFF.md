@@ -174,3 +174,10 @@
 - Резервата за загубен `.delay` гледа `created_at` (не `received_at` — то е от заглавието Date) < 10 мин.
 - Картата `mailbox_alarm` е създадена директно (`ActionCard`), не през `CardService` (br9.1 — да се мине през него); `supersede` не слага `resolved_by_id`.
 - Неотворено: реален Celery beat/worker не е пускан — само задачите през eager режим/сервизите.
+
+## agro-zmv.1 (вход) — готово
+- `app/core/security.py`, `app/services/auth.py`, `app/api/routers/auth.py` (под `/api/v1/auth`), `app/schemas/auth.py`, `current_principal`/`CurrentPrincipal` в `app/api/deps.py`, `tests/integration/test_auth.py` (15 теста).
+- Провалите, които трябва да се запазят (брой грешни пароли, reuse detection), се ВРЪЩАТ като `AuthFailure` и роутерът отговаря с `JSONResponse` — `get_db` прави rollback при изключение.
+- `current_principal` е async dependency: контекстът се вижда от endpoint-а; преди излизане flush-ва, защото commit-ът на `get_db` е след изтичането на контекста. Нови защитени маршрути ползват `CurrentPrincipal` (`.user`, `.device`).
+- Неактивен потребител е навсякъде 401 `user_inactive` (решение на Георги; data-model §3 и api.md §0 са изравнени) — при refresh остава 401 `token_invalid`.
+- Паролата се проверява преди `is_active` (не се разкрива дали имейлът съществува); при изтекло заключване броячът започва отначало.

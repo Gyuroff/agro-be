@@ -25,7 +25,7 @@ TEST_ENV = {
     "APP_ENV": "test",
     "APP_DATABASE_URL": TEST_DATABASE_URL,
     "APP_REDIS_URL": "redis://localhost:6379/1",
-    "APP_JWT_SECRET": "test-jwt-secret",
+    "APP_JWT_SECRET": "test-jwt-secret-0123456789-abcdefghijklmnop",
     "APP_ADMIN_SESSION_SECRET": "test-admin-secret",
     "APP_LLM_PROVIDER": "stub",
 }
