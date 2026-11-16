@@ -103,3 +103,14 @@
   request_id=id на задачата), `tests/integration/test_audited_task.py`.
 - `tests/conftest.py` налага тестовата среда още при импорт (celery_app се създава при импорт, преди фикстурите); без това `.delay()` виси.
 - Нови задачи се добавят в `include=[]` на `create_celery()` и в `beat_schedule`.
+
+## agro-6p5.2 — готово
+- `app/agents/llm.py` (`get_chat_model`/`get_structured_model`, `StubChatModel`, `StubMissing`, `resolve_model`/`resolve_effort`, `model_id`),
+  `graph.py` (`build_extract_graph`: extract → validate → retry ≤1 → fail), `base.py` (`run_agent`), `inputs.py` (`xlsx_to_tsv`, `pdf_text`, `clean_email_text`).
+- Stub fixture: `tests/fixtures/llm/<agent>/<sha1>.json`, sha1 от `normalize_input` (роля + текст, whitespace свит). `StubMissing` носи пътя и входа.
+- `run_agent(session, agent, (subject_type, id) | None, graph, input, prompt_version, input_summary=None)` НЕ хвърля при грешка в графа
+  (иначе rollback изтрива реда): връща `AgentOutcome(run_id, ok, output, error)`; ред в `agent_runs` е ok/error. Графът получава `{"input": …}`,
+  резултатът е `state["output"]` (Pydantic). Невалиден изход след 1 повторение → `AgentValidationError` → run `error`.
+- Настройки: `APP_LLM_MODEL_<AGENT>` / `APP_LLM_EFFORT_*` в `Settings` (Haiku по подразбиране за classifier и cancellation). `effort` се подава на
+  `ChatAnthropic` (поле `reasoning_effort`, псевдоним `effort`). Проверен с реалното API (`scripts/llm_smoke.py`, Haiku и Sonnet). `temperature` НЕ се подава: новите модели връщат 400 „Extra inputs are not permitted“ (тикетът го изискваше).
+- Токените се събират с `UsageMetadataCallbackHandler`; stub → 0.

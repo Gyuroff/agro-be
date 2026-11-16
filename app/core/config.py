@@ -70,10 +70,20 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     mail_authserv_id: str | None = None
 
-    # LLM (docs/llm.md). Моделите по агент (APP_LLM_MODEL_<AGENT>) се добавят със задача agro-6p5.2.
+    # LLM (docs/llm.md §2): модел и effort по агент; празно → llm_model_default / llm_effort_default.
     llm_provider: LlmProvider = LlmProvider.STUB
     llm_api_key: SecretStr | None = None
     llm_model_default: str = "claude-sonnet-5-5"
+    llm_model_email_classifier: str = "claude-haiku-5-5"
+    llm_model_request_parser: str | None = None
+    llm_model_report_parser: str | None = None
+    llm_model_report_matcher: str | None = None
+    llm_model_cancellation_parser: str = "claude-haiku-5-5"
+    llm_model_mi_invoice_parser: str | None = None
+    llm_model_invoice_comparator: str | None = None
+    llm_effort_default: str = "medium"
+    llm_effort_email_classifier: str = "low"
+    llm_effort_cancellation_parser: str = "low"
 
     # Пуш
     fcm_credentials_file: str | None = None
