@@ -23,14 +23,11 @@ ACTOR_CODE = "system:mail_ingest"
 
 
 def dispatch_process_email(email_id: int) -> None:
-    """Пуска `mail.process_email`. Докато задачата не е регистрирана (agro-ha8.5) — само лог."""
+    """Пуска `mail.process_email` (регистрира се от `app.workers.tasks.mail`)."""
     from app.workers.celery_app import celery_app
+    from app.workers.tasks import mail as _mail_tasks  # noqa: F401  (регистрира задачата и в API процеса)
 
-    task = celery_app.tasks.get(PROCESS_TASK_NAME)
-    if task is None:
-        log.info("mail.process_email още не е регистрирана; писмо %s остава `new`", email_id)
-        return
-    task.delay(email_id)
+    celery_app.tasks[PROCESS_TASK_NAME].delay(email_id)
 
 
 def _store(session: Session, parsed: ParsedEmail, raw: bytes, source: str) -> int | None:

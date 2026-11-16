@@ -151,3 +151,26 @@
   Пазачи: `bd note` на agro-ha8.5 и strict-xfail тест `test_process_email_task_is_registered`
   (гърми с XPASS, когато задачата се регистрира — махни маркера и тествай `.delay`).
 - Писма, приети преди ha8.5, остават `new` и трябва да се дообработят.
+
+## agro-ha8.3 (съпоставяне на подателя) — готово
+- `app/mail/matching.py::match_sender` → `MatchResult`; `tests/integration/test_mail_matching.py` (13 теста).
+- Исходящо писмо без `counterparty_id` не печели нишката — пада към контакт/домейн.
+- `suggested_counterparty_id`: неактивен контакт с този адрес, неактивен точен домейн, поддомейн или родителски домейн на познат (за „подобен“ спецификацията не дава правило — моя интерпретация). Публичните домейни дават предположение само през неактивен контакт.
+- Не записва в `InboundEmail` — това прави `mail.process_email` (agro-ha8.5).
+
+## agro-ha8.5 (mail.process_email) — готово
+- `app/services/inbound_mail.py::process` (единствено място, което сменя `inbound_emails.status`), задача `app/workers/tasks/mail.py` (`include` в `celery_app`), `dispatch_process_email` вече вика `.delay`. Тестове: `tests/integration/test_mail_process.py` (13).
+- `KIND_HANDLERS: dict[EmailKind, handler]` — тук 6p5.4/6p5.5/6p5.6/6p5.7 регистрират агентите си; без обработчик → `needs_action` + лог. Обработчикът вика само своя запис; върху него е `begin_nested`.
+- Несигурен вид (<0.7) → карта `unknown_sender` с подзаглавие „несигурен вид“; `kind` става `other`.
+- Грешка (и на класификатора) → `failed` + `error`; `agent_runs` с грешка оцелява. Повторно пускане: админът връща `new` (reprocess — още няма) .
+- Картата е създадена директно (`ActionCard`) — няма `CardService` (br9.1); да се мине през него.
+- Писма `new` от преди ha8.5 още не са дообработени (няма скрипт).
+
+## agro-ha8.2 (IMAP poll + watchdog) — готово
+- `app/mail/sources/imap.py::poll_imap` (BODY.PEEK[], `\Seen` само след успешен `handle`; грешка на писмо не спира другите, то остава UNSEEN),
+  `app/services/mailbox.py` (`poll`, `record_poll`, `requeue_stale_new`, `check_watchdog`, `supersede_alarm`), задачи `mail.poll_inbox` (2 мин.)
+  и `ops.mailbox_watchdog` (10 мин.) в `beat.py`; тестове `tests/integration/test_mailbox.py` (GreenMail на 3025/3143 — нужен `make up`).
+- Неконфигуриран IMAP = ред `mailbox_polls` със status=error („не е конфигуриран“), та watchdog да алармира; без нито един poll → без аларма.
+- Резервата за загубен `.delay` гледа `created_at` (не `received_at` — то е от заглавието Date) < 10 мин.
+- Картата `mailbox_alarm` е създадена директно (`ActionCard`), не през `CardService` (br9.1 — да се мине през него); `supersede` не слага `resolved_by_id`.
+- Неотворено: реален Celery beat/worker не е пускан — само задачите през eager режим/сервизите.

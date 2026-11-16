@@ -70,12 +70,9 @@ def test_dispatch_after_commit(db_session: Session, audit_ctx: AuditContext) -> 
     assert sent == [email_id]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="agro-ha8.5 още не е регистрирала mail.process_email; махни този маркер, когато я добави",
-)
 def test_process_email_task_is_registered() -> None:
     from app.mail.ingest import PROCESS_TASK_NAME
     from app.workers.celery_app import celery_app
 
+    celery_app.loader.import_default_modules()  # както го прави worker-ът (`include`)
     assert PROCESS_TASK_NAME in celery_app.tasks
