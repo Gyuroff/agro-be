@@ -19,7 +19,7 @@ from app.agents.email_classifier.schemas import ClassifierOutput
 from app.agents.inputs import clean_email_text, xlsx_to_tsv
 from app.core import clock
 from app.mail.matching import MatchResult, match_sender
-from app.models.cards import ActionCard, CardKind
+from app.models.cards import CardKind
 from app.models.mail import (
     EmailAttachment,
     EmailKind,
@@ -30,6 +30,7 @@ from app.models.mail import (
 )
 from app.models.masterdata import Counterparty
 from app.schemas.cards import UnknownSenderPayload
+from app.services.cards import CardService
 
 log = logging.getLogger(__name__)
 
@@ -59,16 +60,15 @@ def _unknown_sender_card(
         suggestion_reason="domain" if suggested_id else None,
         auth_ok=email.auth_ok,
     )
-    session.add(
-        ActionCard(
-            kind=CardKind.UNKNOWN_SENDER.value,
-            title=UNKNOWN_TITLE,
-            subtitle=reason,
-            counterparty_id=suggested_id,
-            inbound_email_id=email.id,
-            payload=payload.model_dump(mode="json"),
-            dedupe_key=f"unknown_sender:{email.id}",
-        )
+    CardService.create(
+        session,
+        CardKind.UNKNOWN_SENDER,
+        title=UNKNOWN_TITLE,
+        subtitle=reason,
+        payload=payload,
+        counterparty_id=suggested_id,
+        inbound_email_id=email.id,
+        dedupe_key=f"unknown_sender:{email.id}",
     )
 
 

@@ -14,6 +14,7 @@ from app.models.cards import ActionCard, CardKind, CardStatus
 from app.models.company import CompanySettings
 from app.models.mail import InboundEmail, InboundStatus, MailboxPoll, PollStatus
 from app.schemas.cards import MailboxAlarmPayload
+from app.services.cards import CardService
 
 log = logging.getLogger(__name__)
 
@@ -87,17 +88,15 @@ def check_watchdog(session: Session) -> bool:
     if _open_alarm(session) is not None:
         return False
     silent = int((clock.now() - baseline).total_seconds() // 60)
-    session.add(
-        ActionCard(
-            kind=CardKind.MAILBOX_ALARM.value,
-            title=ALARM_TITLE,
-            subtitle=f"Не е проверявана от {silent} мин.",
-            payload=MailboxAlarmPayload(last_ok_at=last_ok, minutes=silent).model_dump(mode="json"),
-            dedupe_key=ALARM_KEY,
-        )
+    _, created = CardService.create_or_get(
+        session,
+        CardKind.MAILBOX_ALARM,
+        title=ALARM_TITLE,
+        subtitle=f"Не е проверявана от {silent} мин.",
+        payload=MailboxAlarmPayload(last_ok_at=last_ok, minutes=silent),
+        dedupe_key=ALARM_KEY,
     )
-    session.flush()
-    return True
+    return created
 
 
 def poll(

@@ -181,3 +181,13 @@
 - `current_principal` е async dependency: контекстът се вижда от endpoint-а; преди излизане flush-ва, защото commit-ът на `get_db` е след изтичането на контекста. Нови защитени маршрути ползват `CurrentPrincipal` (`.user`, `.device`).
 - Неактивен потребител е навсякъде 401 `user_inactive` (решение на Георги; data-model §3 и api.md §0 са изравнени) — при refresh остава 401 `token_invalid`.
 - Паролата се проверява преди `is_active` (не се разкрива дали имейлът съществува); при изтекло заключване броячът започва отначало.
+
+## agro-br9.1 (CardService, действия, /dashboard) — готово
+- `app/services/cards.py` (`CardService.create/create_or_get/resolve/perform_action`, регистри `register_action`, `register_on_card_created`), `app/services/dashboard.py`, `app/services/trip_views.py`, `app/schemas/{dashboard,trips}.py`, `app/api/routers/cards.py`, `tests/integration/test_card_service.py`.
+- Нови карти се създават САМО през `CardService`; mailbox watchdog и `unknown_sender` вече минават оттам. `create_or_get` връща `(карта, нова)`.
+- Куката `on_card_created(card_id)` е на `after_commit` на сесията (не се вика при dedupe/rollback; грешка в нея само се логва). Пуш (zvb.1) се регистрира с `register_on_card_created`.
+- Диспечерът: непознато (kind, action) → 404 `not_found` (преди проверката за статус); затворена карта → 409 `card_not_open`. Отговорът има `card: null`, ако действието е затворило картата.
+- Handler: `(session, card, body) -> ActionResult(snackbar, undo_token)`; затваря картата с `CardService.resolve`. Общото `hide` е за invoice_missing, contract_over, mailbox_alarm, storage_upload_failed, supplier_advance_low.
+- `/dashboard`: „курсове днес“ не включва `cancelled` (спецификацията не казва — мое решение); `route` е long и за курс без клиент е само „Склад X, Склад“ без „→“. `short` още не е описан → същото като long.
+- Допълнено по бележката на задачата: `inbound_email_id` в supplier_report payload, `warehouse_name` в substitutes. `invoice_version` за invoice_due → agro-e42.
+- Критерият „сийда от T1.12“ не е изпълним (l2v.12 е отворена): тестът на таблото строи данните сам.

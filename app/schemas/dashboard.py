@@ -1,0 +1,38 @@
+"""Табло и карти в JSON (docs/api.md §2)."""
+
+from datetime import date, datetime
+from typing import Any
+
+from pydantic import BaseModel
+
+from app.schemas.cards import Dec
+from app.schemas.trips import TripListItemDTO
+
+
+class CardDTO(BaseModel):
+    id: int
+    kind: str
+    title: str
+    subtitle: str | None
+    created_at: datetime
+    call_phone: str | None
+    payload: dict[str, Any]
+
+
+class TripsTodayDTO(BaseModel):
+    count: int
+    planned_qty_t: Dec
+    items: list[TripListItemDTO]
+
+
+class DashboardDTO(BaseModel):
+    today: date
+    last_mail_check_at: datetime | None
+    cards: list[CardDTO]
+    trips_today: TripsTodayDTO
+
+
+class CardActionResponse(BaseModel):
+    card: CardDTO | None
+    snackbar: str
+    undo_token: str | None

@@ -1,6 +1,6 @@
 """Payload на картите по вид (docs/api.md §2 „payload по вид“).
 
-`CardService` (T4.1) валидира `action_cards.payload` с `PAYLOAD_MODELS[kind]`. Пари и тонове са `Decimal`
+`CardService` (br9.1) валидира `action_cards.payload` с `PAYLOAD_MODELS[kind]`. Пари и тонове са `Decimal`
 и в JSON излизат като низове; непознати полета се отхвърлят (спецификацията е точният списък).
 """
 
@@ -53,12 +53,14 @@ class ReportSubstitute(_Payload):
     product: str
     new_plate: str
     new_qty_t: Dec
+    warehouse_name: str | None
     old_plate: str
     old_planned_qty_t: Dec
 
 
 class SupplierReportPayload(_Payload):
     report_id: int
+    inbound_email_id: int
     received_at: datetime
     total_rows: int
     total_qty_t: Dec
