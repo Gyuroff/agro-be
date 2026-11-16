@@ -31,6 +31,10 @@ TEST_ENV = {
 }
 
 
+# Celery приложението се създава при импорт (преди фикстурите) → средата за тестове е нужна още тук.
+os.environ.update(TEST_ENV)
+
+
 @pytest.fixture(autouse=True)
 def _settings_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Изолирани настройки за всеки тест; без реален .env, без истински LLM."""

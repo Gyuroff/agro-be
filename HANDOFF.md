@@ -96,3 +96,10 @@
 - `push_notifications.kind` = видовете карти + `send_failed` (P4) + `digest` (P12) — „съществуващите“ в §13 е изведено от `docs/push.md`.
 - `agent_runs`/`push_notifications` са в `AUDIT_EXCLUDED_TABLES` (вече бяха), но имат пълен `AuditMixin`.
 - Миграция 0008 има `# ruff: noqa: E501` (дългите CHECK списъци).
+
+## agro-6p5.1 — готово
+- `app/workers/celery_app.py` (`celery_app`; при `APP_ENV=test` → `task_always_eager`), `beat.py` (празен `beat_schedule`), `audited.py`
+  (`@audited_task(actor_code, name=...)`: функцията получава `Session` първа; commit/rollback в `session_scope`, контекст source=worker,
+  request_id=id на задачата), `tests/integration/test_audited_task.py`.
+- `tests/conftest.py` налага тестовата среда още при импорт (celery_app се създава при импорт, преди фикстурите); без това `.delay()` виси.
+- Нови задачи се добавят в `include=[]` на `create_celery()` и в `beat_schedule`.
