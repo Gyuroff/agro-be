@@ -86,6 +86,7 @@ HIDE_KINDS = (
     CardKind.MAILBOX_ALARM,
     CardKind.STORAGE_UPLOAD_FAILED,
     CardKind.SUPPLIER_ADVANCE_LOW,
+    CardKind.STOCK_LOW,
 )
 
 

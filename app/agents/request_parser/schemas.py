@@ -13,6 +13,14 @@ class ParsedLine(BaseModel):
     driver_name: str | None = None
     driver_phone: str | None = None
     qty_t: Decimal | None = Field(default=None, gt=0, description="Тонове; null, ако не е посочено")
+    source_row: int | None = Field(
+        default=None, ge=1, description="Номерът N от префикса [rN] на реда в таблицата; null, ако няма"
+    )
+    packaging_raw: str | None = Field(
+        default=None, description="Разфасовка както е написана („насипни“, „бегове“, „ББ“…); null, ако няма"
+    )
+    location_raw: str | None = Field(default=None, description="„Място на товарене“ както е написано; null")
+    own_transport: bool = Field(default=False, description="true за „транспорт Ива“ (наш камион, без номер)")
     uncertain_fields: list[UncertainField] = Field(default_factory=list)
     uncertain_note: str | None = None
 

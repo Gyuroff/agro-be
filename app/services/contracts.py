@@ -51,14 +51,17 @@ def validate_contract(session: Session, contract: Contract) -> None:
             raise ContractValidationError("billing_rrule", "Невалидно правило за фактуриране.") from exc
 
 
-def price_at(session: Session, contract_id: int, on: date) -> Decimal:
-    """Цената по договора към `on` (датата на натоварване); `NoPriceForDate` (422), ако няма."""
-    price = session.scalar(
-        select(ContractPrice.price_per_t)
-        .where(ContractPrice.contract_id == contract_id, ContractPrice.valid_from <= on)
-        .order_by(ContractPrice.valid_from.desc())
-        .limit(1)
+def price_at(session: Session, contract_id: int, on: date, packaging: str | None = None) -> Decimal:
+    """Цената по договора към `on` (датата на натоварване); `NoPriceForDate` (422), ако няма.
+
+    `packaging=None` — най-новият ред независимо от разфасовката (старият код, докато курсът няма разфасовка).
+    """
+    stmt = select(ContractPrice.price_per_t).where(
+        ContractPrice.contract_id == contract_id, ContractPrice.valid_from <= on
     )
+    if packaging is not None:
+        stmt = stmt.where(ContractPrice.packaging == packaging)
+    price = session.scalar(stmt.order_by(ContractPrice.valid_from.desc()).limit(1))
     if price is None:
         raise NoPriceForDate(contract_id, on)
     return price

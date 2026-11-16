@@ -219,3 +219,20 @@
   Викa се от `inbound_mail.email_agent_input` (за класификатора и парсера). Проверено с реален Sonnet върху истинско писмо: 27 реда за 11–22.11.
 - Открито в данните: в „Място на товарене“ Петя пише „транспорт Ива“ за редовете с НАШ камион (без номер); редовете с рег. № са нейни камиони. Ива връща същия
   файл с попълнено „Място на товарене“ (Разделна/Попово). Връщането на попълнения xlsx при потвърждение НЕ е направено — решение за спецификацията (виж bd).
+
+## agro-2lg (нов модел на заявките) — до 2026-11-16
+- Готово (миграции 0010–0013): разфасовки (`warehouses.packagings`, `contract_prices.packaging`), `trips` planned без
+  доставчик, поле по ред (packaging/warehouse/purchase_contract/own_transport/truck_type/offer_note/outbound_email_id),
+  `counterparties.order_format` и `truck_type`, карта `stock_low`.
+- Код: `app/domain/{packaging,order_format}.py`, `app/services/{offers,stock}.py`, `RequestService` (N писма по
+  доставчик: compose/preview/send/undo/finalize, `GET …/preview`, `GET …/lines/{id}/offers`), `request_intake.assign_offers`,
+  парсерът връща packaging_raw/location_raw/own_transport (PROMPT_VERSION request_parser@3).
+- Решения: формат на писмото = настройка на контрагента; праг stock_low <10%; без оферта редът е „избери“, send → 400.
+- Файл към клиента (agro-cmf): адаптер по клиент — `app/adapters/client_files/` (`ameta` = Пилко/Амета, колона „Място на
+  товарене“), `counterparties.client_file_adapter` (NULL = без файл), `ClientConfirmationService` (превю + send,
+  само при заявка `sent`). Нов клиент с файл = нов адаптер. Парсерът връща `source_row` по префикса `[rN]`
+  (`request_parser@4`); адаптерът проверява датата на реда и не налучква.
+- Остава: `agro-2lg.5` (LLM предложение + decision log), избор на адаптер/формат в админа (`agro-wo5.2`),
+  ФЕ `agro-2lg.1–.4`. `xlsx_template` формат на доставчик още не генерира файл. `stock_low` не се затваря сама.
+  Писмото към клиента не чака отговорите на доставчиците (няма още статус „потвърдено“ в кода) — само `sent`.
+- Спецификацията в `agro-app/docs` е променена и НЕ е комитната (там работи и друга сесия: екран 4/21).

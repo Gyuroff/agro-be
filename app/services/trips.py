@@ -52,6 +52,8 @@ class PlannedTripData:
     driver_phone: str | None = None
     inbound_email_id: int | None = None
     outbound_email_id: int | None = None
+    warehouse_id: int | None = None  # избран на реда; иначе — складът на покупния договор
+    own_transport: bool = False
 
 
 def _qty(value: Decimal) -> str:
@@ -105,10 +107,10 @@ class TripService:
             customer_id=sale.counterparty_id,
             supplier_id=purchase.counterparty_id,
             product_id=sale.product_id,
-            warehouse_id=purchase.warehouse_id,
+            warehouse_id=data.warehouse_id or purchase.warehouse_id,
             planned_date=data.planned_date,
             plate_norm=normalize_plate(data.plate),
-            plate_display=format_plate(data.plate),
+            plate_display="транспорт Ива" if data.own_transport else format_plate(data.plate),
             driver_name=data.driver_name,
             driver_phone=data.driver_phone,
             planned_qty_t=data.planned_qty_t,

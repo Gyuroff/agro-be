@@ -67,6 +67,7 @@ class OutboundPurpose(StrEnum):
     INVOICE = "invoice"
     ACCOUNTANT_NOTE = "accountant_note"
     PAYMENT_REPLY = "payment_reply"
+    CLIENT_CONFIRMATION = "client_confirmation"
 
 
 class OutboundStatus(StrEnum):

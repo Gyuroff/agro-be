@@ -131,11 +131,13 @@ class ContractPrice(AuditMixin, Base):
 
     __tablename__ = "contract_prices"
     __table_args__ = (
-        UniqueConstraint("contract_id", "valid_from", name="contract_valid_from"),
+        UniqueConstraint("contract_id", "packaging", "valid_from", name="contract_packaging_valid_from"),
         CheckConstraint("price_per_t > 0", name="price_positive"),
+        CheckConstraint("packaging IN ('bulk','bagged')", name="packaging"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    packaging: Mapped[str] = mapped_column(Text, nullable=False, default="bulk", server_default="bulk")
     valid_from: Mapped[date] = mapped_column(Date, nullable=False)
     price_per_t: Mapped[Decimal] = mapped_column(PricePerT, nullable=False)

@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,8 +16,9 @@ from app.core.config import get_settings
 from app.main import create_app
 from app.models.cards import ActionCard, CardKind, CardStatus
 from app.models.company import CompanySettings
-from app.models.mail import OutboundEmail
-from app.models.masterdata import Contact
+from app.models.contracts import Contract
+from app.models.mail import InboundEmail, OutboundEmail
+from app.models.masterdata import Contact, Counterparty, Warehouse
 from app.models.trips import ClientRequest, ClientRequestLine, Trip, TripEvent
 from app.services import outbound as outbound_service
 from app.services.cards import CardService
@@ -295,3 +297,240 @@ def test_send_without_order_address_is_400(api: TestClient, auth: dict[str, str]
     s.session.flush()
     response = api.post(f"/api/v1/cards/{s.card.id}/actions/send", headers=auth)
     assert (response.status_code, response.json()["error"]["code"]) == (400, "validation_error")
+
+
+def test_preview_equals_sent_body(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    dispatched: list[tuple[int, datetime | None]],
+) -> None:
+    from app.mail import smtp
+
+    r = api.get(f"/api/v1/requests/{s.request.id}/preview", headers=auth)
+    assert r.status_code == 200
+    assert len(r.json()["emails"]) == 1
+    pv = r.json()["emails"][0]
+    assert pv["to"] == "supplier-orders@example.test" and pv["subject"].endswith("[АИТ-…]")
+    assert db_session.scalar(select(OutboundEmail)) is None  # превюто не създава писмо
+
+    send(api, auth, s.card)
+    db_session.refresh(s.request)
+    out = db_session.get(OutboundEmail, s.request.outbound_email_id)
+    assert out is not None
+    settings_row = db_session.get(CompanySettings, 1)
+    assert settings_row is not None
+    assert pv["body_text"] == smtp.render_body(out.body_text, settings_row.email_signature)
+    assert pv["subject"].removesuffix("[АИТ-…]") == out.subject.removesuffix(f"[{out.reference_code}]")
+    # след „Изпрати“ заявката не е draft → превюто е 409
+    assert api.get(f"/api/v1/requests/{s.request.id}/preview", headers=auth).status_code == 409
+
+
+def two_suppliers(s: Setup) -> Contract:
+    """Втори доставчик с формат `per_day`; l2 отива при него, l1 остава при първия."""
+    w = s.w
+    other = Counterparty(name="Юропак", legal_name="Юропак АД", eik="555555555", order_format="per_day")
+    s.session.add(other)
+    s.session.flush()
+    wh = Warehouse(counterparty_id=other.id, name="Попово")
+    contact = Contact(counterparty_id=other.id, email="orders@europack.test", receives_orders=True)
+    s.session.add_all([wh, contact])
+    s.session.flush()
+    purchase2 = Contract(
+        number="П-2026-099", side="purchase", counterparty_id=other.id, product_id=w.pellets.id,
+        warehouse_id=wh.id, order_contact_id=contact.id, valid_from=date(2026, 1, 1),
+    )  # fmt: skip
+    s.session.add(purchase2)
+    s.session.flush()
+    s.l1.purchase_contract_id = w.purchase.id
+    s.l2.purchase_contract_id = purchase2.id
+    s.l2.packaging = "bagged"
+    s.session.flush()
+    return purchase2
+
+
+def test_one_letter_per_supplier(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    dispatched: list[tuple[int, datetime | None]],
+) -> None:
+    two_suppliers(s)
+    emails = api.get(f"/api/v1/requests/{s.request.id}/preview", headers=auth).json()["emails"]
+    assert [e["to"] for e in emails] == ["supplier-orders@example.test", "orders@europack.test"]
+    assert "Камион" in emails[0]["body_text"] and "Опаковка" not in emails[0]["body_text"]
+    assert (
+        "Дата на експедиция | Вид | Камиони" in emails[1]["body_text"]
+        and "опаковани" in emails[1]["body_text"]
+    )
+
+    token = str(send(api, auth, s.card)["undo_token"])
+    outs = list(db_session.scalars(select(OutboundEmail).order_by(OutboundEmail.id)))
+    assert len(outs) == 2 and len(dispatched) == 2 and {o.status for o in outs} == {"queued"}
+    assert [o.to_addresses for o in outs] == [["supplier-orders@example.test"], ["orders@europack.test"]]
+
+    # „Отмени“ връща и двете писма
+    assert api.post(f"/api/v1/undo/{token}", headers=auth).status_code == 200
+    db_session.expire_all()
+    assert {o.status for o in db_session.scalars(select(OutboundEmail))} == {"draft"}
+    db_session.refresh(s.request)
+    assert s.request.status == "draft"
+
+    # повторно „Изпрати“ преизползва същите писма (без нови АИТ номера)
+    send(api, auth, s.card)
+    assert [o.id for o in db_session.scalars(select(OutboundEmail).order_by(OutboundEmail.id))] == [
+        o.id for o in outs
+    ]
+
+    # заявката е `sent` едва след второто писмо
+    assert mail_tasks.send_outbound.delay(outs[0].id).get() is True
+    db_session.refresh(s.request)
+    assert s.request.status == "queued"
+    assert mail_tasks.send_outbound.delay(outs[1].id).get() is True
+    db_session.refresh(s.request)
+    assert s.request.status == "sent"
+    trips = sorted(trips_of(db_session, s.request), key=lambda t: t.planned_date)
+    assert [t.purchase_contract_id for t in trips] == [s.l1.purchase_contract_id, s.l2.purchase_contract_id]
+    assert trips[0].supplier_id != trips[1].supplier_id
+
+
+def test_line_without_supplier_blocks_send_not_the_request(
+    api: TestClient, auth: dict[str, str], s: Setup
+) -> None:
+    s.w.sale.supply_contract_id = None  # няма насрещен договор → редовете са „избери“
+    s.session.flush()
+    dto = api.get(f"/api/v1/requests/{s.request.id}", headers=auth).json()
+    assert all(line["needs_choice"] for line in dto["lines"])  # заявката се чете и редактира
+    response = api.post(f"/api/v1/cards/{s.card.id}/actions/send", headers=auth)
+    assert (response.status_code, response.json()["error"]["code"]) == (400, "validation_error")
+    assert "1, 2" in response.json()["error"]["message"]
+
+
+def test_choosing_warehouse_picks_cheapest_contract_there(
+    api: TestClient, auth: dict[str, str], s: Setup, db_session: Session
+) -> None:
+    s.w.sale.supply_contract_id = None
+    s.l1.packaging = "bulk"
+    db_session.flush()  # World слага цена 150 (bulk) на покупния договор
+    url = f"/api/v1/requests/{s.request.id}/lines/{s.l1.id}"
+    body = {
+        "planned_date": "2026-11-19", "plate": "СА 1234 ВХ", "driver_name": "Иван Петров",
+        "planned_qty_t": "25.200", "warehouse_id": s.w.wh.id,
+    }  # fmt: skip
+    dto = api.put(url, json=body, headers=auth).json()
+    line = next(x for x in dto["lines"] if x["id"] == s.l1.id)
+    assert (line["warehouse"]["id"], line["purchase_contract_id"], line["needs_choice"]) == (
+        s.w.wh.id,
+        s.w.purchase.id,
+        False,
+    )
+    assert line["offer_note"]["manual"] is True and line["offer_note"]["chosen"]["price_per_t"] == "150.00"
+
+
+def test_offers_endpoint_and_clearing_warehouse(
+    api: TestClient, auth: dict[str, str], s: Setup, db_session: Session
+) -> None:
+    s.w.sale.supply_contract_id = None
+    s.l1.packaging = "bulk"
+    db_session.flush()
+    offers = api.get(f"/api/v1/requests/{s.request.id}/lines/{s.l1.id}/offers", headers=auth).json()
+    assert offers == [
+        {
+            "warehouse": {"id": s.w.wh.id, "name": "Тервел", "supplier_name": s.w.supplier.name},
+            "contract_id": s.w.purchase.id,
+            "price_per_t": "150.00",
+            "is_cheapest": True,
+        }
+    ]
+    url = f"/api/v1/requests/{s.request.id}/lines/{s.l1.id}"
+    body = {"planned_date": "2026-11-19", "plate": "СА 1234 ВХ", "planned_qty_t": "25.200"}
+    chosen = api.put(url, json={**body, "warehouse_id": s.w.wh.id}, headers=auth).json()["lines"][0]
+    assert chosen["purchase_contract_id"] == s.w.purchase.id
+    cleared = api.put(url, json={**body, "warehouse_id": None}, headers=auth).json()["lines"][0]
+    assert (cleared["warehouse"], cleared["purchase_contract_id"], cleared["needs_choice"]) == (
+        None,
+        None,
+        True,
+    )
+    # без warehouse_id в тялото изборът не се пипа
+    api.put(url, json={**body, "warehouse_id": s.w.wh.id}, headers=auth)
+    kept = api.put(url, json=body, headers=auth).json()["lines"][0]
+    assert kept["purchase_contract_id"] == s.w.purchase.id
+
+
+def confirmation_world(s: Setup, tmp_path: Path, adapter: str | None) -> None:
+    from openpyxl import Workbook
+
+    from app.models.mail import EmailAttachment
+
+    wb = Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws["G1"], ws["I2"] = "Дата на изпълнение", "Място на товарене"
+    ws.cell(3, 7, s.l1.planned_date)
+    ws.cell(4, 7, s.l2.planned_date)
+    path = tmp_path / "raboten.xlsx"
+    wb.save(path)
+    inbound = s.session.get(InboundEmail, s.request.inbound_email_id)
+    assert inbound is not None
+    inbound.subject = "седмица 47"
+    att = EmailAttachment(
+        inbound_email_id=inbound.id, filename="Raboten fail.xlsx", content_type="x", size_bytes=1,
+        sha256="0" * 64, storage_path=str(path),
+    )  # fmt: skip
+    s.session.add(att)
+    s.session.flush()
+    s.request.source_attachment_id = att.id
+    s.request.status = "sent"
+    s.l1.source_row, s.l2.source_row = 3, 4
+    s.l1.warehouse_id = s.w.wh.id  # l2 остава „избери“ → предупреждение
+    s.w.client.client_file_adapter = adapter
+    s.session.flush()
+
+
+def test_client_confirmation_with_ameta_adapter(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    tmp_path: Path,
+    dispatched: list[tuple[int, datetime | None]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+
+    from openpyxl import load_workbook
+
+    from app.models.mail import EmailAttachment
+
+    monkeypatch.setenv("APP_STORAGE_DIR", str(tmp_path / "storage"))
+    get_settings.cache_clear()
+    confirmation_world(s, tmp_path, "ameta")
+    url = f"/api/v1/requests/{s.request.id}/client-confirmation"
+    pv = api.get(url, headers=auth).json()
+    assert pv["subject"] == "Re: седмица 47 [АИТ-…]" and pv["to"] == "maria@agrotrade.bg"
+    assert pv["attachment"] == {"filename": "Raboten fail.xlsx", "filled_rows": 1}
+    assert "Потвърждавам графика" in pv["body_text"] and len(pv["warnings"]) == 1
+
+    assert api.post(f"{url}/send", headers=auth).status_code == 202
+    out = db_session.scalars(
+        select(OutboundEmail).where(OutboundEmail.purpose == "client_confirmation")
+    ).one()
+    assert out.status == "queued" and out.to_addresses == ["maria@agrotrade.bg"] and len(dispatched) == 1
+    att = db_session.scalars(select(EmailAttachment).where(EmailAttachment.outbound_email_id == out.id)).one()
+    assert load_workbook(att.storage_path).worksheets[0]["I3"].value == "Тервел"
+    assert api.post(f"{url}/send", headers=auth).status_code == 409  # само веднъж
+
+
+def test_client_without_adapter_gets_only_the_letter(
+    api: TestClient, auth: dict[str, str], s: Setup, tmp_path: Path
+) -> None:
+    confirmation_world(s, tmp_path, None)
+    pv = api.get(f"/api/v1/requests/{s.request.id}/client-confirmation", headers=auth).json()
+    assert pv["attachment"] is None and pv["warnings"] == []
+
+
+def test_confirmation_only_after_suppliers_sent(api: TestClient, auth: dict[str, str], s: Setup) -> None:
+    response = api.get(f"/api/v1/requests/{s.request.id}/client-confirmation", headers=auth)
+    assert (response.status_code, response.json()["error"]["code"]) == (409, "invalid_transition")

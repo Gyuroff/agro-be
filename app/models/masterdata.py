@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import AuditMixin, Base, Pct, enum_check
@@ -40,6 +41,16 @@ class ProductUnit(StrEnum):
     TONNE = "t"
 
 
+class OrderFormat(StrEnum):
+    """Формат на таблицата в писмото към доставчика (agro-4hs): настройка на контрагента."""
+
+    PER_TRUCK = "per_truck"  # Дата | Камион | Шофьор | К-во
+    PER_DAY = "per_day"  # Дата на експедиция | Вид на автомобила/товара | Количество | Общо
+    PER_PACKAGING_COUNT = "per_packaging_count"  # брой курсове по вид опаковка
+    FREE_SCHEDULE = "free_schedule"  # свободен график по дни (текст)
+    XLSX_TEMPLATE = "xlsx_template"  # кратко писмо + xlsx по шаблон на доставчика
+
+
 class Counterparty(AuditMixin, Base):
     """Клиент и/или доставчик; ролята е по договор."""
 
@@ -48,6 +59,7 @@ class Counterparty(AuditMixin, Base):
         CheckConstraint("eik ~ '^[0-9]{9}([0-9]{4})?$'", name="eik_format"),
         CheckConstraint("invoicing_mode <> 'erp' OR microinvest_code IS NOT NULL", name="erp_needs_mi_code"),
         enum_check("invoicing_mode", InvoicingMode),
+        enum_check("order_format", OrderFormat),
         CheckConstraint(
             "default_billing_mode IS NULL OR default_billing_mode IN ('per_trip','per_period')",
             name="default_billing_mode",
@@ -94,6 +106,16 @@ class Counterparty(AuditMixin, Base):
     default_billing_rrule: Mapped[str | None] = mapped_column(Text, nullable=True)
     default_payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_purchase_payment_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_format: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=OrderFormat.PER_TRUCK.value,
+        server_default=OrderFormat.PER_TRUCK.value,
+    )
+    # Адаптер към файла на клиента (app/adapters/client_files; agro-cmf): „ameta“ за Пилко/Амета. NULL = не
+    # връщаме файл, само писмото. Всеки клиент има свои правила за файла, затова е адаптер, не колона.
+    client_file_adapter: Mapped[str | None] = mapped_column(Text, nullable=True)
+    truck_type: Mapped[str | None] = mapped_column(Text, nullable=True)  # клиент: „фуражовоз“ (свои камиони)
     phone: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(
@@ -183,12 +205,24 @@ class Warehouse(AuditMixin, Base):
     """Склад на доставчик — място на товарене."""
 
     __tablename__ = "warehouses"
-    __table_args__ = (UniqueConstraint("counterparty_id", "name", name="counterparty_name"),)
+    __table_args__ = (
+        UniqueConstraint("counterparty_id", "name", name="counterparty_name"),
+        CheckConstraint(
+            "cardinality(packagings) > 0 AND packagings <@ ARRAY['bulk','bagged']::text[]",
+            name="packagings",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     counterparty_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    packagings: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        nullable=False,
+        default=lambda: ["bulk", "bagged"],
+        server_default=text("'{bulk,bagged}'"),
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )

@@ -78,6 +78,13 @@ class ClientRequest(AuditMixin, Base):
         Text, nullable=False, default=RequestStatus.DRAFT.value, server_default=RequestStatus.DRAFT.value
     )
     outbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("outbound_emails.id"), nullable=True)
+    # Писмото „Потвърждавам графика“ към клиента (agro-cmf) и xlsx, от който са взети редовете.
+    confirmation_outbound_id: Mapped[int | None] = mapped_column(
+        ForeignKey("outbound_emails.id", name="fk_client_requests_confirmation_outbound_id"), nullable=True
+    )
+    source_attachment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("email_attachments.id"), nullable=True
+    )
     agent_run_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK → agent_runs (l2v.9)
     agent_notes: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
 
@@ -92,7 +99,8 @@ class Trip(AuditMixin, Base):
             "status = 'unplanned' OR sale_contract_id IS NOT NULL", name="sale_contract_unless_unplanned"
         ),
         CheckConstraint(
-            "status = 'unplanned' OR purchase_contract_id IS NOT NULL",
+            "status IN ('unplanned','planned') "
+            "OR (purchase_contract_id IS NOT NULL AND supplier_id IS NOT NULL)",
             name="purchase_contract_unless_unplanned",
         ),
         CheckConstraint(
@@ -114,7 +122,7 @@ class Trip(AuditMixin, Base):
     sale_contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
     purchase_contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("counterparties.id"), nullable=True)
-    supplier_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
+    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("counterparties.id"), nullable=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"), nullable=True)
     planned_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -138,7 +146,10 @@ class Trip(AuditMixin, Base):
 
 class ClientRequestLine(AuditMixin, Base):
     __tablename__ = "client_request_lines"
-    __table_args__ = (UniqueConstraint("request_id", "line_no", name="request_line_no"),)
+    __table_args__ = (
+        UniqueConstraint("request_id", "line_no", name="request_line_no"),
+        CheckConstraint("packaging IS NULL OR packaging IN ('bulk','bagged')", name="packaging"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     request_id: Mapped[int] = mapped_column(
@@ -160,6 +171,16 @@ class ClientRequestLine(AuditMixin, Base):
         Boolean, nullable=False, default=False, server_default=text("false")
     )
     trip_id: Mapped[int | None] = mapped_column(ForeignKey("trips.id"), nullable=True)
+    packaging: Mapped[str | None] = mapped_column(Text, nullable=True)
+    warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"), nullable=True)
+    purchase_contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
+    outbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("outbound_emails.id"), nullable=True)
+    source_row: Mapped[int | None] = mapped_column(Integer, nullable=True)  # ред в оригиналния xlsx (1-based)
+    truck_type: Mapped[str | None] = mapped_column(Text, nullable=True)  # ръчна промяна на типа в писмото
+    own_transport: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    offer_note: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
 
 class TripEvent(CreatedMixin, Base):

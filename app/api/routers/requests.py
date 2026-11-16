@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Response
 
 from app.api.deps import CurrentPrincipal, DbSession
-from app.schemas.requests import LineBody, PatchRequestBody, RequestDTO
+from app.schemas.requests import LineBody, OfferDTO, PatchRequestBody, PreviewDTO, RequestDTO
+from app.services.client_confirmation import ClientConfirmationService
 from app.services.requests import RequestService
 
 router = APIRouter(tags=["requests"])
@@ -12,6 +13,16 @@ router = APIRouter(tags=["requests"])
 @router.get("/requests/{request_id}", response_model=RequestDTO)
 def request_get(request_id: int, _: CurrentPrincipal, session: DbSession) -> RequestDTO:
     return RequestService.to_dto(session, RequestService.get(session, request_id))
+
+
+@router.get("/requests/{request_id}/preview", response_model=PreviewDTO)
+def request_preview(request_id: int, _: CurrentPrincipal, session: DbSession) -> PreviewDTO:
+    return RequestService.preview(session, RequestService.get(session, request_id))
+
+
+@router.get("/requests/{request_id}/lines/{line_id}/offers", response_model=list[OfferDTO])
+def line_offers(request_id: int, line_id: int, _: CurrentPrincipal, session: DbSession) -> list[OfferDTO]:
+    return RequestService.line_offers(session, RequestService.get(session, request_id), line_id)
 
 
 @router.patch("/requests/{request_id}", response_model=RequestDTO)
@@ -43,6 +54,17 @@ def line_delete(request_id: int, line_id: int, _: CurrentPrincipal, session: DbS
     request = RequestService.get(session, request_id)
     RequestService.remove_line(session, request, line_id)
     return RequestService.to_dto(session, request)
+
+
+@router.get("/requests/{request_id}/client-confirmation")
+def confirmation_preview(request_id: int, _: CurrentPrincipal, session: DbSession) -> dict[str, object]:
+    return ClientConfirmationService.preview(session, RequestService.get(session, request_id))
+
+
+@router.post("/requests/{request_id}/client-confirmation/send", status_code=202)
+def confirmation_send(request_id: int, _: CurrentPrincipal, session: DbSession) -> dict[str, int]:
+    outbound = ClientConfirmationService.send(session, RequestService.get(session, request_id))
+    return {"outbound_email_id": outbound.id}
 
 
 @router.post("/undo/{undo_token}", status_code=200)

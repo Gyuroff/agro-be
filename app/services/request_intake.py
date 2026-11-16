@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents.base import run_agent
@@ -20,16 +20,18 @@ from app.agents.request_parser.graph import AGENT, build_graph
 from app.agents.request_parser.prompts import PROMPT_VERSION
 from app.agents.request_parser.schemas import ParsedLine, RequestParserOutput
 from app.core import clock
+from app.domain.packaging import normalize_packaging
 from app.domain.plates import format_plate, is_valid_plate, normalize_plate
 from app.models.cards import CardKind
 from app.models.company import CompanySettings
 from app.models.contracts import Contract, ContractSide, ContractStatus
-from app.models.mail import EmailKind, InboundEmail, InboundStatus
+from app.models.mail import EmailAttachment, EmailKind, InboundEmail, InboundStatus
 from app.models.masterdata import Contact, Counterparty, Product, Warehouse
 from app.models.trips import ClientRequest, ClientRequestLine, RequestStatus
 from app.schemas.cards import ClientRequestLineView, ClientRequestPayload
 from app.services import inbound_mail
 from app.services.cards import CardService
+from app.services.offers import best_offer
 from app.services.requests import RequestService
 
 log = logging.getLogger(__name__)
@@ -98,7 +100,10 @@ def _build_lines(parsed: list[ParsedLine], default_qty: Decimal, today: date) ->
         plate_raw, trailer = split_plates(item.plate_raw, item.trailer_plate)
         uncertain: OrderedDict[str, None] = OrderedDict.fromkeys(item.uncertain_fields)
         notes = [item.uncertain_note] if item.uncertain_note else []
-        if not is_valid_plate(plate_raw):
+        if item.own_transport:
+            plate_raw, trailer = "", None  # „транспорт Ива“: наш камион, номер няма и не се очаква
+            uncertain.pop("plate", None)
+        elif not is_valid_plate(plate_raw):
             uncertain["plate"] = None
             notes.append(f"невалиден номер „{plate_raw}“" if plate_raw else "няма номер")
         if item.date < today:
@@ -118,11 +123,58 @@ def _build_lines(parsed: list[ParsedLine], default_qty: Decimal, today: date) ->
                 "driver_name": item.driver_name,
                 "driver_phone": item.driver_phone,
                 "planned_qty_t": qty if qty is not None else default_qty,
+                "packaging": normalize_packaging(item.packaging_raw),
+                "own_transport": item.own_transport,
+                "source_row": item.source_row,
+                "location_raw": item.location_raw,
                 "uncertain_fields": list(uncertain),
                 "uncertain_note": "; ".join(notes) or None,
             }
         )
     return rows
+
+
+def _warehouse_by_hint(session: Session, hint: str | None) -> Warehouse | None:
+    """„Място на товарене“ от клиента → склад по име (само ако е еднозначно)."""
+    if not hint:
+        return None
+    found = [
+        w
+        for w in session.scalars(
+            select(Warehouse).where(Warehouse.is_active.is_(True)).order_by(Warehouse.id)
+        )
+        if _hint_matches(hint, w.name)
+    ]
+    return found[0] if len(found) == 1 else None
+
+
+def assign_offers(
+    session: Session,
+    sale: Contract | None,
+    lines: list[ClientRequestLine],
+    locations: list[str | None],
+) -> None:
+    """Предложение по ред: най-евтината оферта (зачита „Място на товарене“). Без оферта — ред „избери“:
+    заявката не се блокира. Критерий е само цената; Ива сменя склада ръчно."""
+    if sale is None:
+        return
+    for line, location in zip(lines, locations, strict=True):
+        warehouse = _warehouse_by_hint(session, location)
+        if line.packaging is None:
+            line.offer_note = {"reason": "няма разфасовка", "location": location}
+            continue
+        result = best_offer(
+            session,
+            product_id=sale.product_id,
+            packaging=line.packaging,
+            on=line.planned_date,
+            warehouse_id=warehouse.id if warehouse is not None else None,
+        )
+        line.offer_note = {**result.note(), "location": location}
+        if result.best is not None:
+            line.purchase_contract_id = result.best.contract_id
+            line.warehouse_id = result.best.warehouse_id
+    session.flush()
 
 
 def _agent_notes(
@@ -175,7 +227,10 @@ def handle(session: Session, email: InboundEmail) -> InboundStatus:
         return InboundStatus.NEEDS_ACTION  # повторно пускане: заявката вече е създадена
 
     today = clock.today_sofia()
-    agent_input = {**inbound_mail.email_agent_input(session, email), "today": today.isoformat()}
+    agent_input = {
+        **inbound_mail.email_agent_input(session, email, row_numbers=True),
+        "today": today.isoformat(),
+    }
     outcome = run_agent(
         session, AGENT, ("inbound_emails", email.id), build_graph(), agent_input, PROMPT_VERSION
     )
@@ -209,16 +264,29 @@ def handle(session: Session, email: InboundEmail) -> InboundStatus:
         period_to=end,
         status=RequestStatus.DRAFT.value,
         agent_run_id=outcome.run_id,
+        source_attachment_id=session.scalar(
+            select(EmailAttachment.id)
+            .where(
+                EmailAttachment.inbound_email_id == email.id,
+                func.lower(EmailAttachment.filename).like("%.xlsx"),
+            )
+            .order_by(EmailAttachment.id)
+            .limit(1)
+        ),
         agent_notes=_agent_notes(customer, contract, output, start, end, rows, reason),
     )
     session.add(request)
     session.flush()
     for no, r in enumerate(rows, start=1):
-        session.add(ClientRequestLine(request_id=request.id, line_no=no, **r))
+        fields = {k: v for k, v in r.items() if k != "location_raw"}
+        session.add(ClientRequestLine(request_id=request.id, line_no=no, **fields))
     session.flush()
+    assign_offers(
+        session, contract, RequestService.lines(session, request), [r["location_raw"] for r in rows]
+    )
 
     lines = RequestService.lines(session, request)
-    purchase = RequestService._purchase(session, request)
+    purchase = RequestService.first_purchase(session, request, lines)
     total = sum((line.planned_qty_t for line in lines), Decimal("0"))
     payload = ClientRequestPayload(
         request_id=request.id,

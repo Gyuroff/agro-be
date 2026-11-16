@@ -27,6 +27,7 @@ EXAMPLES: dict[CardKind, str] = {
     CardKind.ONE_SHOT_SEND: """{ "deal_id": 12, "customer_name": "Агро Фермер ООД", "supplier_name": "Пелет АД", "product": "Урея", "qty_t": "300.000", "sell_price_per_t": "570.00", "buy_price_per_t": "550.00", "margin_per_t": "20.00", "send_customer_proforma": true, "send_supplier_request": true, "customer_email_preview": { "to": "a@b.bg", "subject": "s", "body": "b" }, "supplier_email_preview": { "to": "c@d.bg", "subject": "s", "body": "b" } }""",
     CardKind.SUPPLIER_DOC: """{ "deal_id": 12, "inbound_email_id": 840, "doc_kind": "proforma", "supplier_name": "Пелет АД", "qty_t": "300.000", "price_per_t": "550.00", "number": "123" }""",
     CardKind.ONE_SHOT_PAY_SUPPLIER: """{ "deal_id": 12, "supplier_name": "Пелет АД", "amount": "165000.00", "supplier_doc_number": "123" }""",
+    CardKind.STOCK_LOW: """{ "product": "Пелети", "contracts": 3, "total_t": "3000.000", "taken_t": "2750.000", "remaining_t": "250.000", "remaining_pct": "8.33" }""",
     CardKind.SUPPLIER_ADVANCE_LOW: """{ "purchase_contract_id": 7, "contract_number": "П-2026-007", "supplier_name": "Пелет АД", "balance": "42000.00", "needed": "58000.00", "buffer": "5000.00", "shortfall": "21000.00", "trigger": "request_send" }""",
 }
 

@@ -62,7 +62,10 @@ def _keep(cells: list[str], col: int, window: tuple[date, date], n: int, header_
 
 
 def xlsx_to_tsv(
-    path: str | Path, max_rows: int = MAX_XLSX_ROWS, window: tuple[date, date] | None = None
+    path: str | Path,
+    max_rows: int = MAX_XLSX_ROWS,
+    window: tuple[date, date] | None = None,
+    row_numbers: bool = False,
 ) -> str:
     """Видимите листове като TSV; празните редове отпадат; общо най-много `max_rows` реда с данни.
 
@@ -70,6 +73,8 @@ def xlsx_to_tsv(
     `window`: работните файлове растат с години (1474 реда), а седмицата е най-долу. Ако в първите
     `HEADER_ROWS` реда има колона „Дата на изпълнение“, остават заглавните редове и редовете с дата в
     прозореца. Без такава колона листът се чете както преди (първите `max_rows` реда).
+    `row_numbers`: всеки ред започва с `[rN]` — номерът му в листа (1-based), за да може агентът да върне
+    `source_row` (по него се попълва „Място на товарене“ в оригиналния файл, agro-cmf).
     """
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
@@ -92,7 +97,7 @@ def xlsx_to_tsv(
                     header_n = n
                 elif window is not None and col is not None and not _keep(cells, col, window, n, header_n):
                     continue
-                out.append("\t".join(cells))
+                out.append(("\t".join([f"[r{n + 1}]", *cells])) if row_numbers else "\t".join(cells))
                 rows += 1
                 if rows >= max_rows:
                     break

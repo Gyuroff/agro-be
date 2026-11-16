@@ -35,7 +35,7 @@ def trip_list_items(
     Курс без клиент (`unplanned`) няма „→ клиент“ — само доставчика. `short` още не е описан в
     спецификацията (виж bd note на agro-br9.1), затова засега е същото като `long`.
     """
-    ids = {t.supplier_id for t in trips} | {t.customer_id for t in trips if t.customer_id}
+    ids = {t.supplier_id for t in trips if t.supplier_id} | {t.customer_id for t in trips if t.customer_id}
     names = dict(
         session.execute(select(Counterparty.id, Counterparty.name).where(Counterparty.id.in_(ids))).all()
     )
@@ -50,7 +50,7 @@ def trip_list_items(
     )
     items: list[TripListItemDTO] = []
     for t in trips:
-        source = names[t.supplier_id]
+        source = names[t.supplier_id] if t.supplier_id else "Доставчикът не е избран"
         if route_style == "long":
             source = f"Склад {source}" + (f", {warehouses[t.warehouse_id]}" if t.warehouse_id else "")
         route = f"{source} → {names[t.customer_id]}" if t.customer_id else source

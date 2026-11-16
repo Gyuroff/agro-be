@@ -230,3 +230,44 @@ def test_pair_in_plate_field_saved_as_trailer(
     line = db_session.scalars(select(ClientRequestLine)).one()
     assert (line.plate_raw, line.trailer_plate) == ("СВ7246НХ", "СВ5874ЕА")
     assert line.plate_norm == "CB7246HX" and line.uncertain_fields == []
+
+
+def test_lines_get_cheapest_offer_and_unmatched_lines_stay_to_choose(
+    db_session: Session, audit_ctx: AuditContext, parse: Callable[[dict[str, Any]], None]
+) -> None:
+    from app.models.contracts import ContractPrice
+
+    w = _world(db_session)  # покупен договор П-2026-007 в „Тервел“, цена 150 за bulk
+    cheap_wh = Warehouse(counterparty_id=w.supplier.id, name="Разделна", packagings=["bulk"])
+    db_session.add(cheap_wh)
+    db_session.flush()
+    cheap = w._contract("purchase", "П-2026-020", w.supplier, warehouse_id=cheap_wh.id)
+    jan = clock.today_sofia().replace(month=1, day=1)
+    db_session.add(
+        ContractPrice(contract_id=cheap.id, packaging="bulk", valid_from=jan, price_per_t=D("140"))
+    )
+    db_session.flush()
+    mail = _mail(db_session, w)
+    day = clock.today_sofia() + timedelta(days=2)
+    parse(
+        {
+            "lines": [
+                _line(day, "СА 1234 ВХ", packaging_raw="насипни"),
+                _line(day, "СВ 7890 ТР", packaging_raw="насипни", location_raw="Тервел"),
+                _line(day, "", packaging_raw="транспорт", own_transport=True),
+                _line(day, "РВ 1111 АА", packaging_raw="бегове"),  # няма склад с цена за бегове
+            ]
+        }
+    )
+    inbound_mail.process(db_session, mail.id)
+    a, b, own, bagged = db_session.scalars(select(ClientRequestLine).order_by(ClientRequestLine.line_no))
+    assert (a.packaging, a.purchase_contract_id, a.warehouse_id) == ("bulk", cheap.id, cheap_wh.id)
+    assert (b.purchase_contract_id, b.warehouse_id) == (
+        w.purchase.id,
+        w.wh.id,
+    )  # зачетено „Място на товарене“
+    assert own.own_transport and own.plate_raw == "" and "plate" not in own.uncertain_fields
+    assert (bagged.packaging, bagged.purchase_contract_id, bagged.warehouse_id) == ("bagged", None, None)
+    assert [c["price_per_t"] for c in (a.offer_note or {})["candidates"]] == ["140.00", "150.00"]
+    request = db_session.scalars(select(ClientRequest)).one()
+    assert request.status == "draft"  # без оферта заявката не е блокирана

@@ -99,13 +99,15 @@ def _outbound_id(session: Session, email: InboundEmail) -> int | None:
     return None
 
 
-def email_agent_input(session: Session, email: InboundEmail) -> dict[str, Any]:
+def email_agent_input(session: Session, email: InboundEmail, *, row_numbers: bool = False) -> dict[str, Any]:
     attachments: list[dict[str, str]] = []
     for att in session.scalars(select(EmailAttachment).where(EmailAttachment.inbound_email_id == email.id)):
         item = {"name": att.filename}
         if att.filename.lower().endswith(".xlsx"):
             try:
-                item["tsv"] = xlsx_to_tsv(att.storage_path, window=date_window(email.received_at.date()))
+                item["tsv"] = xlsx_to_tsv(
+                    att.storage_path, window=date_window(email.received_at.date()), row_numbers=row_numbers
+                )
             except Exception:  # повреден файл не бива да спира обработката; агентът го вижда само по името
                 log.warning("xlsx %s на писмо %s не се чете", att.filename, email.id)
         attachments.append(item)

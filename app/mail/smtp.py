@@ -35,6 +35,11 @@ def subject_with_reference(subject: str, reference_code: str) -> str:
     return subject if f"[{reference_code}]" in subject else f"{subject} [{reference_code}]"
 
 
+def render_body(body_text: str, signature: str) -> str:
+    """Тялото така, както тръгва: текст + подпис. Ползват го и `build_message`, и превюто."""
+    return f"{body_text.rstrip()}\n\n-- \n{signature.strip()}\n"
+
+
 def build_message(
     outbound: OutboundEmail,
     company: CompanySettings,
@@ -56,7 +61,7 @@ def build_message(
     if in_reply_to is not None:
         msg["In-Reply-To"] = in_reply_to.message_id
         msg["References"] = " ".join([*(in_reply_to.references or []), in_reply_to.message_id])
-    msg.set_content(f"{outbound.body_text.rstrip()}\n\n-- \n{company.email_signature.strip()}\n")
+    msg.set_content(render_body(outbound.body_text, company.email_signature))
     if outbound.body_html:
         msg.add_alternative(outbound.body_html, subtype="html")
     for filename, content_type, data in attachments:

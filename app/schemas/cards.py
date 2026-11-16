@@ -219,6 +219,17 @@ class SupplierAdvanceLowPayload(_Payload):
     trigger: Literal["request_send", "inbound_invoice", "daily"]
 
 
+class StockLowPayload(_Payload):
+    """Общият запас по активните покупни договори на стоката наближава сбора им (agro-2lg)."""
+
+    product: str
+    contracts: int
+    total_t: Dec
+    taken_t: Dec
+    remaining_t: Dec
+    remaining_pct: Dec
+
+
 PAYLOAD_MODELS: dict[CardKind, type[_Payload]] = {
     CardKind.CLIENT_REQUEST: ClientRequestPayload,
     CardKind.SUPPLIER_REPORT: SupplierReportPayload,
@@ -236,4 +247,5 @@ PAYLOAD_MODELS: dict[CardKind, type[_Payload]] = {
     CardKind.SUPPLIER_DOC: SupplierDocPayload,
     CardKind.ONE_SHOT_PAY_SUPPLIER: OneShotPaySupplierPayload,
     CardKind.SUPPLIER_ADVANCE_LOW: SupplierAdvanceLowPayload,
+    CardKind.STOCK_LOW: StockLowPayload,
 }

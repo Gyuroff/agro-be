@@ -33,6 +33,7 @@ class CardKind(StrEnum):
     SUPPLIER_DOC = "supplier_doc"
     ONE_SHOT_PAY_SUPPLIER = "one_shot_pay_supplier"
     SUPPLIER_ADVANCE_LOW = "supplier_advance_low"
+    STOCK_LOW = "stock_low"
 
 
 class CardStatus(StrEnum):
@@ -91,6 +92,7 @@ class PushKind(StrEnum):
     SUPPLIER_DOC = CardKind.SUPPLIER_DOC.value
     ONE_SHOT_PAY_SUPPLIER = CardKind.ONE_SHOT_PAY_SUPPLIER.value
     SUPPLIER_ADVANCE_LOW = CardKind.SUPPLIER_ADVANCE_LOW.value
+    STOCK_LOW = CardKind.STOCK_LOW.value
     SEND_FAILED = "send_failed"
     DIGEST = "digest"
 
