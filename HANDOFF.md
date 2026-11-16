@@ -121,3 +121,16 @@
 - `decide()`: confidence < 0.7 → `kind=other`, `uncertain=True`, причина „несигурен вид“. Картата `unknown_sender` я вдига `mail.process_email` (ha8.5) — payload-ът няма поле за причина (`extra=forbid`), не е измислено.
 - Fixtures: случаите са в `tests/fixtures/classifier/cases.json`; `PYTHONPATH=. uv run python scripts/gen_classifier_fixtures.py` ги прави в `tests/fixtures/llm/email_classifier/` (sha1 зависи от промпта — пускай след всяка промяна му).
 - Бектест ≥95 % върху D-SAMPLES НЕ е направен: няма реални примери; влиза в 6p5.9 (eval harness).
+
+## agro-6p5.3 — реални примери (2026-11-16)
+- Реални писма от двете кутии са изтеглени в `~/agro-samples/raw` (ИЗВЪН git; 678 писма, `index.csv`). Скриптове: `~/agro-samples-tools/`
+  (`build_cases.py` анонимизира → `tests/fixtures/classifier/real_cases.json`). Паролите на кутиите НЕ са записани никъде; рано или късно
+  трябва да се сменят (споделени в чат).
+- Домейнът е торове/фуражи/пелети (КАН, УАН, фуражовози), не зърно. Кутиите се препращат една към друга → дублиране по `Message-ID` (ha8.1).
+- В реалната поща НЯМА входящи откази на курсове (`АНУЛИРАНЕ` са изходящи за УНП) → `cancellation` остава само синтетичен.
+- Етикетите в `real_cases.json` са мои преценки (`label_verified=false`), собственикът да ги потвърди. Особено: фактури PDF → `mi_invoice`
+  (не е ясно кои са от Microinvest), проформа → `other`, xlsx „Raboten fail“ на клиент → `request`.
+- Промптът е `email_classifier@2` (описания по реалните примери). Eval с реален Haiku (`PYTHONPATH=. APP_LLM_PROVIDER=anthropic uv run python
+  scripts/eval_classifier.py`): 23/24; единствената грешка — само „ФАКТУРА“+PDF, увереност 0.60 → `other` по правилото.
+- Word-HTML писма (напр. „справка КАН“) имат XML боклук (`w:LatentStyles`) и в text/plain → `clean_email_text` не го маха; да се реши в ha8.1/inputs.
+- Stub тестовете проверяват само водопровода (отговорът е записаният етикет); точността се мери със `scripts/eval_classifier.py` (влиза в 6p5.9).

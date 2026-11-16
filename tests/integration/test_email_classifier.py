@@ -11,9 +11,10 @@ from app.agents.email_classifier.prompts import PROMPT_VERSION, render_user
 from app.agents.email_classifier.schemas import ClassifierOutput, EmailKind
 from app.core.audit_context import AuditContext
 
-CASES: list[dict[str, Any]] = json.loads(
-    (Path(__file__).parent.parent / "fixtures" / "classifier" / "cases.json").read_text(encoding="utf-8")
-)
+_DIR = Path(__file__).parent.parent / "fixtures" / "classifier"
+CASES: list[dict[str, Any]] = [
+    c for f in sorted(_DIR.glob("*cases.json")) for c in json.loads(f.read_text(encoding="utf-8"))
+]
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
