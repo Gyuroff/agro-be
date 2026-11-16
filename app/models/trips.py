@@ -89,6 +89,25 @@ class ClientRequest(AuditMixin, Base):
     agent_notes: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
 
 
+class ClientRequestSupplierDraft(AuditMixin, Base):
+    """Отмяна на писмото по доставчик (data-model §8): ред само при редакция; NULL = подразбиращото се.
+
+    `version` е от `AuditMixin` (оптимистично заключване): ORM го вдига при всеки UPDATE.
+    """
+
+    __tablename__ = "client_request_supplier_drafts"
+    __table_args__ = (UniqueConstraint("request_id", "counterparty_id", name="request_supplier"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    request_id: Mapped[int] = mapped_column(
+        ForeignKey("client_requests.id", ondelete="CASCADE"), nullable=False
+    )
+    counterparty_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
+    to_addresses: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    subject: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_intro: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class Trip(AuditMixin, Base):
     __tablename__ = "trips"
     __table_args__ = (

@@ -58,22 +58,39 @@ class PreviewDTO(BaseModel):
     emails: list[EmailPreviewDTO]
 
 
+class GroupEmailDTO(BaseModel):
+    to: list[str]
+    subject: str
+    body_intro: str
+    version: int  # версията НА ПИСМОТО (client_request_supplier_drafts.version; 1, докато няма ред)
+
+
+class SupplierGroupDTO(BaseModel):
+    """`supplier_id=None` е „Без склад“: без писмо."""
+
+    supplier_id: int | None
+    supplier_name: str | None
+    line_ids: list[int]
+    email: GroupEmailDTO | None
+
+
 class RequestDTO(BaseModel):
     id: int
     status: str
-    to: str | None
-    supplier_name: str | None
-    subject: str
-    body_intro: str
+    customer_name: str
     sale_contract: IdNumber | None
     lines: list[RequestLineDTO]
+    groups: list[SupplierGroupDTO]
     warnings: list[str]
     version: int
 
 
-class PatchRequestBody(BaseModel):
+class PatchEmailBody(BaseModel):
+    """`PATCH /requests/{id}/emails/{supplier_id}`: явен `null` връща подразбиращото се."""
+
     model_config = ConfigDict(extra="forbid")
     version: int
+    to: list[str] | None = None
     subject: str | None = Field(default=None, min_length=1)
     body_intro: str | None = None
 

@@ -236,3 +236,11 @@
   ФЕ `agro-2lg.1–.4`. `xlsx_template` формат на доставчик още не генерира файл. `stock_low` не се затваря сама.
   Писмото към клиента не чака отговорите на доставчиците (няма още статус „потвърдено“ в кода) — само `sent`.
 - Спецификацията в `agro-app/docs` е променена и НЕ е комитната (там работи и друга сесия: екран 4/21).
+
+## agro-2lg.7 (API по доставчик) — готово
+- `client_request_supplier_drafts` (`ClientRequestSupplierDraft` в `app/models/trips.py`, миграция 0015). `version` е от `AuditMixin` (ORM-ът го вдига при UPDATE) —
+  редът се създава при първия PATCH (v1 → flush → промени → v2). `PATCH /requests/{id}/emails/{supplier_id}`; старият `PATCH /requests/{id}` е ПРЕМАХНАТ.
+- `GET /requests/{id}`: `groups[]` (+ „Без склад“ с `supplier_id=null`), `customer_name`; няма top-level to/subject/body_intro/supplier_name. Подразбираните тема/поздрав вече не се четат от payload на картата.
+- Частично изпращане: `send` праща само редовете с доставчик, които не са в `queued`/`sent` писмо (`RequestService.sent_line_ids`, по статуса на `outbound_emails`); заявката е `queued` и картата `done` само когато няма ред без склад, иначе `draft`/`open`. Изпратен ред не се редактира/маха (409).
+- `undo_token` вече носи `outbound_email_ids` (на това „Изпрати“); undo връща само тях. Стари токени (с `outbound_email_id`) не важат.
+- `preview.emails[]` няма version/line_ids (не са поискани).

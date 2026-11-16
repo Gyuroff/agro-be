@@ -1,9 +1,12 @@
-"""Заявки: GET/PATCH, редове, undo (docs/api.md §2–§3). „Изпрати“/„Отхвърли“ са действия по картата."""
+"""Заявки: GET, PATCH на писмото по доставчик, редове, undo (docs/api.md §2–§3).
+
+„Изпрати“/„Отхвърли“ са действия по картата.
+"""
 
 from fastapi import APIRouter, Response
 
 from app.api.deps import CurrentPrincipal, DbSession
-from app.schemas.requests import LineBody, OfferDTO, PatchRequestBody, PreviewDTO, RequestDTO
+from app.schemas.requests import LineBody, OfferDTO, PatchEmailBody, PreviewDTO, RequestDTO
 from app.services.client_confirmation import ClientConfirmationService
 from app.services.requests import RequestService
 
@@ -25,11 +28,12 @@ def line_offers(request_id: int, line_id: int, _: CurrentPrincipal, session: DbS
     return RequestService.line_offers(session, RequestService.get(session, request_id), line_id)
 
 
-@router.patch("/requests/{request_id}", response_model=RequestDTO)
-def request_patch(
-    request_id: int, body: PatchRequestBody, _: CurrentPrincipal, session: DbSession
+@router.patch("/requests/{request_id}/emails/{supplier_id}", response_model=RequestDTO)
+def email_patch(
+    request_id: int, supplier_id: int, body: PatchEmailBody, _: CurrentPrincipal, session: DbSession
 ) -> RequestDTO:
-    request = RequestService.update(session, RequestService.get(session, request_id), body)
+    request = RequestService.get(session, request_id)
+    RequestService.update_email(session, request, supplier_id, body)
     return RequestService.to_dto(session, request)
 
 

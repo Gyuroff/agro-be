@@ -139,11 +139,12 @@ def trips_of(session: Session, request: ClientRequest) -> list[Trip]:
 
 def test_get_request_dto(api: TestClient, auth: dict[str, str], s: Setup) -> None:
     body = api.get(f"/api/v1/requests/{s.request.id}", headers=auth).json()
-    assert (body["to"], body["supplier_name"], body["status"]) == (
-        "supplier-orders@example.test",
-        "Агро Сует",
-        "draft",
-    )
+    assert body["status"] == "draft" and body["customer_name"]
+    assert [(g["supplier_name"], g["email"]["to"], g["email"]["version"]) for g in body["groups"]] == [
+        ("Агро Сует", ["supplier-orders@example.test"], 1)
+    ]
+    assert body["groups"][0]["line_ids"] == [s.l1.id, s.l2.id]
+    assert "to" not in body and "subject" not in body
     assert body["sale_contract"] == {"id": s.w.sale.id, "number": "2026-018"}
     assert [line["plate"] for line in body["lines"]] == ["СА 1234 ВХ", "СВ 7890 ТР"]
     assert body["warnings"] == ["Агентът не е сигурен за шофьора на СА 1234 ВХ — писано на ръка"]
@@ -151,11 +152,6 @@ def test_get_request_dto(api: TestClient, auth: dict[str, str], s: Setup) -> Non
 
 def test_patch_and_line_edits(api: TestClient, auth: dict[str, str], s: Setup, db_session: Session) -> None:
     url = f"/api/v1/requests/{s.request.id}"
-    version = api.get(url, headers=auth).json()["version"]
-    patched = api.patch(url, json={"version": version, "subject": "Нова тема"}, headers=auth).json()
-    assert patched["subject"] == "Нова тема" and patched["version"] == version + 1
-    stale = api.patch(url, json={"version": version, "subject": "x"}, headers=auth)
-    assert (stale.status_code, stale.json()["error"]["code"]) == (409, "version_conflict")
 
     edit = {
         "planned_date": "2026-11-19",
@@ -396,16 +392,177 @@ def test_one_letter_per_supplier(
     assert trips[0].supplier_id != trips[1].supplier_id
 
 
-def test_line_without_supplier_blocks_send_not_the_request(
-    api: TestClient, auth: dict[str, str], s: Setup
+def test_patch_email_uses_email_version_and_feeds_preview_and_send(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    dispatched: list[tuple[int, datetime | None]],
 ) -> None:
-    s.w.sale.supply_contract_id = None  # няма насрещен договор → редовете са „избери“
+    from app.mail import smtp
+
+    p2 = two_suppliers(s)
+    url = f"/api/v1/requests/{s.request.id}"
+    dto = api.get(url, headers=auth).json()
+    sup1, sup2 = (g["supplier_id"] for g in dto["groups"])
+    assert sup2 == p2.counterparty_id
+
+    edit = {
+        "version": 1,
+        "subject": "Нова тема",
+        "to": ["A@Pelet.test", "b@pelet.test"],
+        "body_intro": "Здрасти",
+    }
+    patched = api.patch(f"{url}/emails/{sup1}", json=edit, headers=auth)
+    assert patched.status_code == 200
+    first, second = patched.json()["groups"]
+    assert first["email"] == {
+        "to": ["a@pelet.test", "b@pelet.test"],
+        "subject": "Нова тема",
+        "body_intro": "Здрасти",
+        "version": 2,
+    }
+    assert (
+        second["email"]["version"] == 1 and patched.json()["version"] == dto["version"]
+    )  # другото писмо и заявката — недокоснати
+    stale = api.patch(f"{url}/emails/{sup1}", json={"version": 1, "subject": "x"}, headers=auth)
+    assert (stale.status_code, stale.json()["error"]["code"]) == (409, "version_conflict")
+    # другият доставчик не е засегнат от версията на първия
+    assert (
+        api.patch(f"{url}/emails/{sup2}", json={"version": 1, "subject": "Втора"}, headers=auth).status_code
+        == 200
+    )
+    assert api.patch(f"{url}/emails/999999", json={"version": 1}, headers=auth).status_code == 404
+    bad = api.patch(f"{url}/emails/{sup1}", json={"version": 2, "to": ["без-маймунка"]}, headers=auth)
+    assert (bad.status_code, bad.json()["error"]["code"]) == (400, "validation_error")
+    # явен null връща подразбиращото се
+    reset = api.patch(f"{url}/emails/{sup1}", json={"version": 2, "subject": None}, headers=auth).json()
+    assert reset["groups"][0]["email"]["subject"].startswith("Курсове") and reset["groups"][0]["email"][
+        "to"
+    ] == ["a@pelet.test", "b@pelet.test"]
+    api.patch(f"{url}/emails/{sup1}", json={"version": 3, "subject": "Нова тема"}, headers=auth)
+
+    emails = api.get(f"{url}/preview", headers=auth).json()["emails"]
+    assert emails[0]["to"] == "a@pelet.test, b@pelet.test" and emails[0]["subject"] == "Нова тема [АИТ-…]"
+    assert emails[0]["body_text"].startswith("Здрасти") and emails[1]["subject"] == "Втора [АИТ-…]"
+
+    send(api, auth, s.card)
+    outs = list(db_session.scalars(select(OutboundEmail).order_by(OutboundEmail.id)))
+    settings_row = db_session.get(CompanySettings, 1)
+    assert settings_row is not None
+    assert outs[0].to_addresses == ["a@pelet.test", "b@pelet.test"]
+    for pv, out in zip(emails, outs, strict=True):
+        assert pv["body_text"] == smtp.render_body(out.body_text, settings_row.email_signature)
+        assert pv["subject"].removesuffix("[АИТ-…]") == out.subject.removesuffix(f"[{out.reference_code}]")
+
+
+def no_warehouse(s: Setup) -> None:
+    """l2 остава без склад/доставчик („избери“), l1 — при първия доставчик."""
+    s.l1.purchase_contract_id = s.w.purchase.id
+    s.l2.purchase_contract_id = None
+    s.l2.warehouse_id = None
+    s.w.sale.supply_contract_id = None
+    s.session.flush()
+
+
+def test_no_warehouse_group_and_partial_send(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    dispatched: list[tuple[int, datetime | None]],
+) -> None:
+    no_warehouse(s)
+    url = f"/api/v1/requests/{s.request.id}"
+    dto = api.get(url, headers=auth).json()
+    assert [(g["supplier_id"], g["line_ids"], g["email"] is None) for g in dto["groups"]] == [
+        (s.w.supplier.id, [s.l1.id], False),
+        (None, [s.l2.id], True),
+    ]
+    assert [e["to"] for e in api.get(f"{url}/preview", headers=auth).json()["emails"]] == [
+        "supplier-orders@example.test"
+    ]
+
+    token = str(send(api, auth, s.card)["undo_token"])
+    db_session.refresh(s.request)
+    db_session.refresh(s.card)
+    assert (s.request.status, s.card.status) == ("draft", "open")  # остава ред без склад
+    out = db_session.scalars(select(OutboundEmail)).one()
+    assert out.status == "queued" and len(dispatched) == 1
+    assert db_session.get(ClientRequestLine, s.l1.id).outbound_email_id == out.id  # type: ignore[union-attr]
+    assert db_session.get(ClientRequestLine, s.l2.id).outbound_email_id is None  # type: ignore[union-attr]
+
+    # изпратеният ред не се редактира; празният ред — да
+    edit = {"planned_date": "2026-11-19", "plate": "СА 1234 ВХ", "planned_qty_t": "1.000"}
+    assert api.put(f"{url}/lines/{s.l1.id}", json=edit, headers=auth).status_code == 409
+    assert (
+        api.put(f"{url}/lines/{s.l2.id}", json={**edit, "plate": "СВ 7890 ТР"}, headers=auth).status_code
+        == 200
+    )
+    # повторно „Изпрати“ без нови редове с доставчик → 400, не дублира писмо
+    again = api.post(f"/api/v1/cards/{s.card.id}/actions/send", headers=auth)
+    assert (again.status_code, again.json()["error"]["code"]) == (400, "validation_error")
+
+    # „Отмени“ връща само изпратения ред
+    assert api.post(f"/api/v1/undo/{token}", headers=auth).status_code == 200
+    db_session.expire_all()
+    assert db_session.get(OutboundEmail, out.id).status == "draft"  # type: ignore[union-attr]
+    assert db_session.get(ClientRequest, s.request.id).status == "draft"  # type: ignore[union-attr]
+    assert [e["supplier_name"] for e in api.get(f"{url}/preview", headers=auth).json()["emails"]] == [
+        "Агро Сует"
+    ]
+
+
+def test_partial_send_then_rest_completes_request(
+    api: TestClient,
+    auth: dict[str, str],
+    s: Setup,
+    db_session: Session,
+    dispatched: list[tuple[int, datetime | None]],
+) -> None:
+    no_warehouse(s)
+    p2 = two_suppliers(s)
+    s.l2.purchase_contract_id = None  # two_suppliers го е насочил към втория доставчик
+    s.l2.warehouse_id = None
+    s.session.flush()
+    send(api, auth, s.card)
+    first = db_session.scalars(select(OutboundEmail)).one()
+    assert mail_tasks.send_outbound.delay(first.id).get() is True
+    db_session.refresh(s.request)
+    assert s.request.status == "draft"  # l2 още няма курс
+
+    s.l2.purchase_contract_id = p2.id
+    s.session.flush()
+    token2 = str(send(api, auth, s.card)["undo_token"])
+    db_session.refresh(s.request)
+    db_session.refresh(s.card)
+    assert (s.request.status, s.card.status) == ("queued", "done")
+    outs = list(db_session.scalars(select(OutboundEmail).order_by(OutboundEmail.id)))
+    assert len(outs) == 2 and outs[0].status == "sent" and outs[1].status == "queued"
+    # „Отмени“ на второто изпращане не пипа първото
+    assert api.post(f"/api/v1/undo/{token2}", headers=auth).status_code == 200
+    db_session.expire_all()
+    assert [o.status for o in db_session.scalars(select(OutboundEmail).order_by(OutboundEmail.id))] == [
+        "sent",
+        "draft",
+    ]
+    send(api, auth, s.card)
+    assert mail_tasks.send_outbound.delay(outs[1].id).get() is True
+    db_session.refresh(s.request)
+    assert s.request.status == "sent"
+
+
+def test_all_lines_without_supplier_is_400(api: TestClient, auth: dict[str, str], s: Setup) -> None:
+    s.w.sale.supply_contract_id = None  # няма насрещен договор → всички редове са „избери“
     s.session.flush()
     dto = api.get(f"/api/v1/requests/{s.request.id}", headers=auth).json()
     assert all(line["needs_choice"] for line in dto["lines"])  # заявката се чете и редактира
-    response = api.post(f"/api/v1/cards/{s.card.id}/actions/send", headers=auth)
-    assert (response.status_code, response.json()["error"]["code"]) == (400, "validation_error")
-    assert "1, 2" in response.json()["error"]["message"]
+    assert [(g["supplier_id"], g["email"]) for g in dto["groups"]] == [(None, None)]
+    for response in (
+        api.post(f"/api/v1/cards/{s.card.id}/actions/send", headers=auth),
+        api.get(f"/api/v1/requests/{s.request.id}/preview", headers=auth),
+    ):
+        assert (response.status_code, response.json()["error"]["code"]) == (400, "validation_error")
 
 
 def test_choosing_warehouse_picks_cheapest_contract_there(

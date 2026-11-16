@@ -1,7 +1,9 @@
 """RequestService — заявки от клиенти: редакция, „Изпрати“, „Отмени“, `finalize` (docs/api.md §2–§3).
 
-- Темата и приветствието на писмото се пазят в `payload` на картата `client_request` (`subject`, `greeting`):
-  таблицата `client_requests` няма такива колони.
+- Тема, приветствие и адреси на писмото са по доставчик: `client_request_supplier_drafts` (ред само при
+  редакция; NULL = подразбиращото се). `payload` на картата държи само подразбираните (`subject`, `greeting`).
+- „Изпрати“ обработва само редовете С доставчик, които още не са тръгнали; заявката става `queued`, когато
+  няма друг ред за изпращане (иначе остава `draft`, картата — `open`). `undo` връща само писмата от токена.
 - `send` НЕ създава курсове: слага заявката и писмото в `queued`; курсовете се създават от `finalize`,
   която `mail.send_outbound` вика в същата транзакция преди SMTP (регистрира се през `register_before_send`).
 - `undo` връща писмото и заявката в `draft`, а картата в `open`.
@@ -19,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core import clock
 from app.core.config import get_settings
 from app.core.errors import DomainError
+from app.domain.emails import normalize_email
 from app.domain.order_format import render_body
 from app.domain.plates import format_plate, is_valid_plate, normalize_plate
 from app.mail import smtp
@@ -27,16 +30,18 @@ from app.models.company import CompanySettings
 from app.models.contracts import Contract
 from app.models.mail import OutboundEmail, OutboundPurpose, OutboundStatus
 from app.models.masterdata import Contact, Counterparty, Warehouse
-from app.models.trips import ClientRequest, ClientRequestLine, RequestStatus
+from app.models.trips import ClientRequest, ClientRequestLine, ClientRequestSupplierDraft, RequestStatus
 from app.schemas.cards import ClientRequestLineView, ClientRequestPayload
 from app.schemas.requests import (
     EmailPreviewDTO,
+    GroupEmailDTO,
     LineBody,
     OfferDTO,
-    PatchRequestBody,
+    PatchEmailBody,
     PreviewDTO,
     RequestDTO,
     RequestLineDTO,
+    SupplierGroupDTO,
     WarehouseRef,
 )
 from app.services import outbound as outbound_service
@@ -79,8 +84,8 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(get_settings().jwt_secret.get_secret_value(), salt=UNDO_SALT)
 
 
-def make_undo_token(outbound_id: int) -> str:
-    return _serializer().dumps({"outbound_email_id": outbound_id})
+def make_undo_token(outbound_ids: list[int]) -> str:
+    return _serializer().dumps({"outbound_email_ids": outbound_ids})
 
 
 def _fmt_day(day: date) -> str:
@@ -149,22 +154,45 @@ class RequestService:
     @staticmethod
     def groups(
         session: Session, request: ClientRequest, lines: list[ClientRequestLine]
-    ) -> dict[int, tuple[Contract, list[ClientRequestLine]]]:
-        """Редовете по доставчик (по реда на първата поява); редове без доставчик са „избери“ → 400."""
+    ) -> tuple[dict[int, tuple[Contract, list[ClientRequestLine]]], list[ClientRequestLine]]:
+        """Редовете по доставчик (по реда на първата поява) и редовете без доставчик („Без склад“)."""
         out: dict[int, tuple[Contract, list[ClientRequestLine]]] = {}
-        missing = [
-            line.line_no for line in lines if RequestService.line_purchase(session, request, line) is None
-        ]
-        if missing:
-            nums = ", ".join(str(n) for n in missing)
-            raise DomainError(
-                "validation_error", f"Изберете склад/доставчик за редове: {nums}.", http_status=400
-            )
+        unassigned: list[ClientRequestLine] = []
         for line in lines:
             contract = RequestService.line_purchase(session, request, line)
-            assert contract is not None
-            out.setdefault(contract.counterparty_id, (contract, []))[1].append(line)
-        return out
+            if contract is None:
+                unassigned.append(line)
+            else:
+                out.setdefault(contract.counterparty_id, (contract, []))[1].append(line)
+        return out, unassigned
+
+    @staticmethod
+    def sent_line_ids(session: Session, lines: list[ClientRequestLine]) -> set[int]:
+        """Редове, чието писмо вече е `queued`/`sent`/… (не е `draft`) — не се пипат и не се пращат пак."""
+        ids = [line.outbound_email_id for line in lines if line.outbound_email_id is not None]
+        if not ids:
+            return set()
+        rows = session.execute(
+            select(OutboundEmail.id, OutboundEmail.status).where(OutboundEmail.id.in_(ids))
+        )
+        statuses: dict[int, str] = dict(rows.tuples().all())
+        return {
+            line.id
+            for line in lines
+            if line.outbound_email_id is not None
+            and statuses.get(line.outbound_email_id, OutboundStatus.DRAFT.value) != OutboundStatus.DRAFT.value
+        }
+
+    @staticmethod
+    def supplier_draft(
+        session: Session, request: ClientRequest, supplier_id: int
+    ) -> ClientRequestSupplierDraft | None:
+        return session.scalar(
+            select(ClientRequestSupplierDraft).where(
+                ClientRequestSupplierDraft.request_id == request.id,
+                ClientRequestSupplierDraft.counterparty_id == supplier_id,
+            )
+        )
 
     @staticmethod
     def _order_address(session: Session, purchase: Contract | None) -> str | None:
@@ -200,24 +228,20 @@ class RequestService:
         return f"Здравейте,\nИзпращаме ви курсовете на {name}{span}:"
 
     @staticmethod
-    def texts(session: Session, request: ClientRequest, lines: list[ClientRequestLine]) -> tuple[str, str]:
-        """`(subject, greeting)`: редактираното в картата, иначе по подразбиране."""
-        card = RequestService.card(session, request)
-        payload: dict[str, Any] = card.payload if card is not None else {}
-        return (
-            payload.get("subject") or RequestService.default_subject(session, request, lines),
-            payload.get("greeting") or RequestService.default_greeting(session, request, lines),
-        )
+    def addresses(
+        session: Session, request: ClientRequest, purchase: Contract, draft: ClientRequestSupplierDraft | None
+    ) -> list[str]:
+        """„До:“ на писмото: редактираното, иначе контактът за поръчки на договора."""
+        if draft is not None and draft.to_addresses:
+            return list(draft.to_addresses)
+        default = RequestService._order_address(session, purchase)
+        return [default] if default else []
 
     @staticmethod
     def to_dto(session: Session, request: ClientRequest) -> RequestDTO:
         lines = RequestService.lines(session, request)
-        subject, greeting = RequestService.texts(session, request, lines)
         sale = session.get(Contract, request.sale_contract_id) if request.sale_contract_id else None
         purchases = [RequestService.line_purchase(session, request, line) for line in lines]
-        supplier_ids = list(dict.fromkeys(p.counterparty_id for p in purchases if p is not None))
-        suppliers = [session.get(Counterparty, i) for i in supplier_ids]
-        first = next((p for p in purchases if p is not None), None)
         refs = RequestService._warehouse_refs(session, [line.warehouse_id for line in lines])
         warnings = [
             f"Агентът не е сигурен за {_FIELD_LABELS.get(f, f)} на {format_plate(line.plate_raw)}"
@@ -225,13 +249,36 @@ class RequestService:
             for line in lines
             for f in line.uncertain_fields
         ]
+        subject = RequestService.default_subject(session, request, lines)
+        greeting = RequestService.default_greeting(session, request, lines)
+        by_supplier, unassigned = RequestService.groups(session, request, lines)
+        groups: list[SupplierGroupDTO] = []
+        for supplier_id, (purchase, group) in by_supplier.items():
+            supplier = session.get(Counterparty, supplier_id)
+            draft = RequestService.supplier_draft(session, request, supplier_id)
+            groups.append(
+                SupplierGroupDTO(
+                    supplier_id=supplier_id,
+                    supplier_name=supplier.name if supplier is not None else None,
+                    line_ids=[line.id for line in group],
+                    email=GroupEmailDTO(
+                        to=RequestService.addresses(session, request, purchase, draft),
+                        subject=(draft.subject if draft else None) or subject,
+                        body_intro=(draft.body_intro if draft else None) or greeting,
+                        version=draft.version if draft else 1,
+                    ),
+                )
+            )
+        if unassigned:
+            groups.append(
+                SupplierGroupDTO(
+                    supplier_id=None, supplier_name=None, line_ids=[x.id for x in unassigned], email=None
+                )
+            )
         return RequestDTO(
             id=request.id,
             status=request.status,
-            to=RequestService._order_address(session, first),
-            supplier_name=", ".join(c.name for c in suppliers if c is not None) or None,
-            subject=subject,
-            body_intro=greeting,
+            customer_name=RequestService._customer_name(session, request),
             sale_contract=(
                 {"id": sale.id, "number": sale.number} if sale is not None else None  # type: ignore[arg-type]
             ),
@@ -255,6 +302,7 @@ class RequestService:
                 )
                 for line, purchase in zip(lines, purchases, strict=True)
             ],
+            groups=groups,
             warnings=warnings,
             version=request.version,
         )
@@ -274,21 +322,18 @@ class RequestService:
         RequestService._refresh_card(session, request)
 
     @staticmethod
-    def _refresh_card(
-        session: Session, request: ClientRequest, *, subject: str | None = None, greeting: str | None = None
-    ) -> None:
+    def _refresh_card(session: Session, request: ClientRequest) -> None:
         card = RequestService.card(session, request)
         if card is None or card.status != CardStatus.OPEN.value:
             return
         lines = RequestService.lines(session, request)
-        old_subject, old_greeting = RequestService.texts(session, request, lines)
         purchase = RequestService.first_purchase(session, request, lines)
         payload = ClientRequestPayload(
             request_id=request.id,
             inbound_email_id=request.inbound_email_id,
             to=RequestService._order_address(session, purchase) or card.payload.get("to", ""),
-            subject=subject or old_subject,
-            greeting=greeting if greeting is not None else old_greeting,
+            subject=RequestService.default_subject(session, request, lines),
+            greeting=RequestService.default_greeting(session, request, lines),
             lines=[
                 ClientRequestLineView(
                     date=line.planned_date,
@@ -307,14 +352,39 @@ class RequestService:
         session.flush()
 
     @staticmethod
-    def update(session: Session, request: ClientRequest, body: PatchRequestBody) -> ClientRequest:
+    def update_email(
+        session: Session, request: ClientRequest, supplier_id: int, body: PatchEmailBody
+    ) -> ClientRequestSupplierDraft:
+        """Отмяна на писмото до един доставчик; `version` е на писмото, не на заявката."""
         RequestService._require_draft(request)
-        if request.version != body.version:
-            raise DomainError("version_conflict", "Заявката е променена от друг.", http_status=409)
-        request.updated_at = clock.now()
+        lines = RequestService.lines(session, request)
+        by_supplier, _ = RequestService.groups(session, request, lines)
+        if supplier_id not in by_supplier:
+            raise DomainError("not_found", "Доставчикът няма писмо в тази заявка.", http_status=404)
+        group = by_supplier[supplier_id][1]
+        if RequestService.sent_line_ids(session, group) >= {line.id for line in group}:
+            raise DomainError("invalid_transition", "Писмото вече е изпратено.", http_status=409)
+        draft = RequestService.supplier_draft(session, request, supplier_id)
+        if (draft.version if draft else 1) != body.version:
+            raise DomainError("version_conflict", "Писмото е променено от друг.", http_status=409)
+        if draft is None:
+            draft = ClientRequestSupplierDraft(request_id=request.id, counterparty_id=supplier_id)
+            session.add(draft)
+            session.flush()  # версия 1; промените по-долу са UPDATE → 2
+        sent = body.model_fields_set
+        if "to" in sent:
+            addresses = [normalize_email(a) for a in body.to or []]
+            if any("@" not in a for a in addresses):
+                msg = "Невалиден имейл адрес."
+                raise DomainError("validation_error", msg, http_status=400, fields={"to": msg})
+            draft.to_addresses = addresses or None
+        if "subject" in sent:
+            draft.subject = body.subject
+        if "body_intro" in sent:
+            draft.body_intro = body.body_intro or None
+        draft.updated_at = clock.now()  # и PATCH без промяна вдига версията на писмото
         session.flush()
-        RequestService._refresh_card(session, request, subject=body.subject, greeting=body.body_intro)
-        return request
+        return draft
 
     @staticmethod
     def _apply(session: Session, request: ClientRequest, line: ClientRequestLine, body: LineBody) -> None:
@@ -353,6 +423,13 @@ class RequestService:
         if line is None or line.request_id != request.id or line.is_removed:
             raise DomainError("not_found", "Редът не е намерен.", http_status=404)
         return line
+
+    @staticmethod
+    def _require_unsent(session: Session, line: ClientRequestLine) -> None:
+        if line.id in RequestService.sent_line_ids(session, [line]):
+            raise DomainError(
+                "invalid_transition", "Редът е в изпратено писмо — първо „Отмени“.", http_status=409
+            )
 
     @staticmethod
     def _sale(session: Session, request: ClientRequest) -> Contract | None:
@@ -436,6 +513,7 @@ class RequestService:
     ) -> ClientRequestLine:
         RequestService._require_draft(request)
         line = RequestService._line(session, request, line_id)
+        RequestService._require_unsent(session, line)
         RequestService._apply(session, request, line, body)
         RequestService._touch(session, request)
         return line
@@ -471,7 +549,9 @@ class RequestService:
     @staticmethod
     def remove_line(session: Session, request: ClientRequest, line_id: int) -> None:
         RequestService._require_draft(request)
-        RequestService._line(session, request, line_id).is_removed = True
+        line = RequestService._line(session, request, line_id)
+        RequestService._require_unsent(session, line)
+        line.is_removed = True
         RequestService._touch(session, request)
 
     # ---------- действия по картата ----------
@@ -484,7 +564,13 @@ class RequestService:
         supplier: Counterparty,
     ) -> tuple[str, str]:
         """`(subject, body_text)` за един доставчик — единственото място, което сглобява писмото."""
-        subject, greeting = RequestService.texts(session, request, lines)
+        draft = RequestService.supplier_draft(session, request, supplier.id)
+        subject = (draft.subject if draft else None) or RequestService.default_subject(
+            session, request, lines
+        )
+        greeting = (draft.body_intro if draft else None) or RequestService.default_greeting(
+            session, request, lines
+        )
         sale = RequestService._sale(session, request)
         client = session.get(Counterparty, sale.counterparty_id) if sale is not None else None
         truck = client.truck_type if client is not None else None
@@ -493,25 +579,35 @@ class RequestService:
     @staticmethod
     def _drafts(
         session: Session, request: ClientRequest
-    ) -> list[tuple[Counterparty, str, list[ClientRequestLine], str, str]]:
-        """По едно писмо на доставчик: `(доставчик, адрес, редове, тема, тяло)`; валидира заявката."""
-        lines = RequestService.lines(session, request)
+    ) -> tuple[list[tuple[Counterparty, list[str], list[ClientRequestLine], str, str]], bool]:
+        """По едно писмо на доставчик за редовете с доставчик, които още не са тръгнали:
+        `([(доставчик, адреси, редове, тема, тяло)], има_ли_още_редове_за_после)`."""
+        all_lines = RequestService.lines(session, request)
         if request.sale_contract_id is None:
             raise DomainError("validation_error", "Изберете договор за заявката.", http_status=400)
-        if not lines:
+        if not all_lines:
             raise DomainError("validation_error", "Заявката няма камиони.", http_status=400)
+        sent = RequestService.sent_line_ids(session, all_lines)
+        by_supplier, unassigned = RequestService.groups(
+            session, request, [line for line in all_lines if line.id not in sent]
+        )
+        if not by_supplier:
+            raise DomainError(
+                "validation_error", "Няма нито един ред с избран склад/доставчик.", http_status=400
+            )
         drafts = []
-        for supplier_id, (purchase, group) in RequestService.groups(session, request, lines).items():
+        for supplier_id, (purchase, group) in by_supplier.items():
             supplier = session.get(Counterparty, supplier_id)
-            to = RequestService._order_address(session, purchase)
-            if supplier is None or to is None:
+            draft = RequestService.supplier_draft(session, request, supplier_id)
+            to = RequestService.addresses(session, request, purchase, draft)
+            if supplier is None or not to:
                 name = supplier.name if supplier is not None else str(supplier_id)
                 raise DomainError(
                     "validation_error", f"Доставчикът {name} няма адрес за поръчки.", http_status=400
                 )
             subject, text = RequestService.compose(session, request, group, supplier)
             drafts.append((supplier, to, group, subject, text))
-        return drafts
+        return drafts, bool(unassigned)
 
     @staticmethod
     def preview(session: Session, request: ClientRequest) -> PreviewDTO:
@@ -519,15 +615,16 @@ class RequestService:
         RequestService._require_draft(request)
         company = session.get(CompanySettings, 1)
         signature = company.email_signature if company is not None else ""
+        drafts, _ = RequestService._drafts(session, request)
         return PreviewDTO(
             emails=[
                 EmailPreviewDTO(
                     supplier_name=supplier.name,
-                    to=to,
+                    to=", ".join(to),
                     subject=smtp.subject_with_reference(subject, "АИТ-…"),
                     body_text=smtp.render_body(text, signature),
                 )
-                for supplier, to, _group, subject, text in RequestService._drafts(session, request)
+                for supplier, to, _group, subject, text in drafts
             ]
         )
 
@@ -537,7 +634,7 @@ class RequestService:
             raise DomainError("not_found", "Картата няма заявка.", http_status=404)
         request = RequestService.get(session, card.client_request_id, lock=True)
         RequestService._require_draft(request)
-        drafts = RequestService._drafts(session, request)
+        drafts, has_rest = RequestService._drafts(session, request)
 
         outbounds: list[OutboundEmail] = []
         for supplier, to, group, subject, text in drafts:
@@ -547,13 +644,13 @@ class RequestService:
                 outbound = OutboundService.create_draft(
                     session,
                     purpose=OutboundPurpose.SUPPLIER_ORDER,
-                    to_addresses=[to],
+                    to_addresses=to,
                     subject=subject,
                     body_text=text,
                     counterparty_id=supplier.id,
                 )
             else:  # след „Отмени“: същото писмо (същият АИТ номер), с актуалните редове
-                outbound.to_addresses = [to]
+                outbound.to_addresses = to
                 outbound.subject = smtp.subject_with_reference(subject, outbound.reference_code)
                 outbound.body_text = text
             for line in group:
@@ -562,13 +659,14 @@ class RequestService:
             outbounds.append(outbound)
         first = outbounds[0]
         request.outbound_email_id = first.id
-        request.status = RequestStatus.QUEUED.value
-        card.outbound_email_id = first.id
-        CardService.resolve(session, card, CardStatus.DONE, CardResolution.SENT)
+        if not has_rest:  # няма ред без склад → всичко е тръгнало; иначе заявката и картата остават отворени
+            request.status = RequestStatus.QUEUED.value
+            card.outbound_email_id = first.id
+            CardService.resolve(session, card, CardStatus.DONE, CardResolution.SENT)
         for outbound in outbounds:
             outbound_service.schedule_send(session, outbound)
         names = ", ".join(supplier.name for supplier, *_ in drafts)
-        return ActionResult(f"Имейлът е изпратен до {names}", make_undo_token(first.id))
+        return ActionResult(f"Имейлът е изпратен до {names}", make_undo_token([o.id for o in outbounds]))
 
     @staticmethod
     def reject(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
@@ -584,45 +682,32 @@ class RequestService:
 
     @staticmethod
     def undo(session: Session, token: str) -> None:
+        """Връща в `draft` само писмата от токена (с редовете им); писма от други „Изпрати“ не се пипат."""
         try:
             data = _serializer().loads(token, max_age=UNDO_MAX_AGE_SECONDS)
         except BadSignature:
             raise UndoExpired from None
-        outbound = session.scalar(
-            select(OutboundEmail).where(OutboundEmail.id == data["outbound_email_id"]).with_for_update()
+        ids = set(data["outbound_email_ids"])
+        mails = list(
+            session.scalars(select(OutboundEmail).where(OutboundEmail.id.in_(ids)).with_for_update())
         )
-        if outbound is None or outbound.status != OutboundStatus.QUEUED.value:
-            raise UndoExpired
-        # Заявката може да има няколко писма (по едно на доставчик): отменят се заедно.
-        request_ids = set(
-            session.scalars(
-                select(ClientRequestLine.request_id).where(ClientRequestLine.outbound_email_id == outbound.id)
-            )
-        ) | set(
-            session.scalars(select(ClientRequest.id).where(ClientRequest.outbound_email_id == outbound.id))
-        )
-        siblings = {outbound.id} | set(
-            session.scalars(
-                select(ClientRequestLine.outbound_email_id).where(
-                    ClientRequestLine.request_id.in_(request_ids),
-                    ClientRequestLine.outbound_email_id.is_not(None),
-                )
-            )
-        )
-        for mail in session.scalars(
-            select(OutboundEmail).where(OutboundEmail.id.in_(siblings)).with_for_update()
-        ):
-            if mail.status != OutboundStatus.QUEUED.value:
-                raise UndoExpired  # поне едно вече е тръгнало — отмяна на половината е по-лоша
+        if len(mails) != len(ids) or any(m.status != OutboundStatus.QUEUED.value for m in mails):
+            raise UndoExpired  # поне едно вече е тръгнало — отмяна на половината е по-лоша
+        for mail in mails:
             mail.status = OutboundStatus.DRAFT.value
             mail.send_after = None
+        request_ids = set(
+            session.scalars(
+                select(ClientRequestLine.request_id).where(ClientRequestLine.outbound_email_id.in_(ids))
+            )
+        )
         for request in session.scalars(
             select(ClientRequest).where(
                 ClientRequest.id.in_(request_ids), ClientRequest.status == RequestStatus.QUEUED.value
             )
         ):
             request.status = RequestStatus.DRAFT.value
-        for card in session.scalars(select(ActionCard).where(ActionCard.outbound_email_id.in_(siblings))):
+        for card in session.scalars(select(ActionCard).where(ActionCard.outbound_email_id.in_(ids))):
             if card.status != CardStatus.OPEN.value:
                 card.status = CardStatus.OPEN.value
                 card.resolution = None
