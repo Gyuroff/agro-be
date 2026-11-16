@@ -70,14 +70,14 @@ class ClientRequest(AuditMixin, Base):
     __table_args__ = (enum_check("status", RequestStatus),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    inbound_email_id: Mapped[int] = mapped_column(BigInteger, nullable=False)  # FK → inbound_emails (l2v.6)
+    inbound_email_id: Mapped[int] = mapped_column(ForeignKey("inbound_emails.id"), nullable=False)
     sale_contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
     period_from: Mapped[date | None] = mapped_column(Date, nullable=True)
     period_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(
         Text, nullable=False, default=RequestStatus.DRAFT.value, server_default=RequestStatus.DRAFT.value
     )
-    outbound_email_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK → outbound_emails
+    outbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("outbound_emails.id"), nullable=True)
     agent_run_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK → agent_runs (l2v.9)
     agent_notes: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
 
@@ -173,5 +173,5 @@ class TripEvent(CreatedMixin, Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    inbound_email_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.6)
-    outbound_email_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.6)
+    inbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("inbound_emails.id"), nullable=True)
+    outbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("outbound_emails.id"), nullable=True)

@@ -1,5 +1,6 @@
 """trips, преходи, събития, показатели на договор (agro-l2v.7)."""
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -8,10 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core import clock
 from app.core.audit_context import AuditContext
 from app.core.errors import DomainError
 from app.domain.pricing import NoPriceForDate
 from app.models.contracts import Contract, ContractPrice
+from app.models.mail import InboundEmail, OutboundEmail
 from app.models.masterdata import Counterparty, Product, Warehouse
 from app.models.trips import (
     CancelSource,
@@ -63,7 +66,16 @@ class World:
         return c
 
     def request(self) -> ClientRequest:
-        r = ClientRequest(inbound_email_id=1, sale_contract_id=self.sale.id)
+        mail = InboundEmail(
+            message_id=f"<req-{uuid.uuid4().hex}@x>",
+            from_address="maria@agrotrade.bg",
+            received_at=clock.now(),
+            raw_path="/tmp/x.eml",
+            auth_ok=True,
+        )
+        self.session.add(mail)
+        self.session.flush()
+        r = ClientRequest(inbound_email_id=mail.id, sale_contract_id=self.sale.id)
         self.session.add(r)
         self.session.flush()
         return r
@@ -111,7 +123,17 @@ def assert_invalid(trip: Trip, action: object) -> None:
 
 
 def test_create_planned(w: World, db_session: Session) -> None:
-    trip = w.planned(outbound_email_id=7, inbound_email_id=3)
+    req = w.request()
+    out = OutboundEmail(
+        reference_code="АИТ-0001",
+        purpose="supplier_order",
+        to_addresses=["a@b.bg"],
+        subject="s",
+        body_text="t",
+    )
+    db_session.add(out)
+    db_session.flush()
+    trip = w.planned(outbound_email_id=out.id, inbound_email_id=req.inbound_email_id)
     assert (trip.status, trip.origin) == ("planned", "request")
     assert (trip.plate_norm, trip.plate_display) == ("CA1234BX", "СА 1234 ВХ")
     assert (trip.customer_id, trip.supplier_id, trip.warehouse_id) == (w.client.id, w.supplier.id, w.wh.id)

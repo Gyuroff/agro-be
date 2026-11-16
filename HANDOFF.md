@@ -137,3 +137,11 @@
 - Обновление след отговор на собственика: xlsx на клиент = `request` (потвърдено). Фактурите/проформите от ДОСТАВЧИЦИ НЕ са `mi_invoice` (ползват Мегасофт)
   и не са `other` (проформата води до фактура) → в enum-а няма вид за тях; не е измислен. 5 случая са `pending_spec` (пропускат се в тестовете и точността),
   въпросът е в `bd note agro-6p5.3`. Eval с реален Haiku върху останалите: 19/19.
+
+## agro-l2v.6 — готово
+- `app/models/mail.py` (InboundEmail, OutboundEmail, EmailAttachment, MailboxPoll), миграция `0009`, `app/mail/storage.py` (`save_bytes(kind, data, *, suffix=None) → (path, sha256, size)`),
+  тестове `tests/integration/test_mail_models.py`, `tests/unit/test_mail_storage.py`.
+- Добавени са FK, оставени „голи“ до тук: `client_requests.inbound/outbound_email_id`, `trip_events.*_email_id`, `action_cards.*_email_id`. Тестовете, които са ползвали измислени id-та на писма, вече създават истински `InboundEmail`/`OutboundEmail`.
+- inbound ↔ outbound са във взаимна зависимост: FK `inbound_emails.replies_to_outbound_id` е с `use_alter=True` и в миграцията се създава след двете таблици (autogenerate я слагаше в `create_table` → щеше да гърмне).
+- `mailbox_polls` вече беше в `AUDIT_EXCLUDED_TABLES`; `email_attachments` е с „точно едно“ CHECK (`<>` върху двете IS NOT NULL).
+- ВЪПРОС (в `bd note`): `app/mail/storage.py` (локален диск, `raw_path`) дублира `app/core/storage.py` (S3 първо + `stored_objects`, architecture §11). Направен е по тикета; ha8.1 да реши кой от двата ползва за `.eml`/прикачени.
