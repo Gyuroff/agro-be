@@ -34,7 +34,7 @@ class EmailKind(StrEnum):
     REQUEST = "request"
     REPORT = "report"
     CANCELLATION = "cancellation"
-    MI_INVOICE = "mi_invoice"
+    MEGA_INVOICE = "mega_invoice"
     SUPPLIER_DOC = "supplier_doc"
     INQUIRY = "inquiry"
     PAYMENT_QUESTION = "payment_question"

@@ -1,5 +1,5 @@
 {
-  "kind": "mi_invoice",
+  "kind": "mega_invoice",
   "confidence": 0.97,
   "reason": "Прикачена е фактура от Мега с номер и редове.",
   "doc_kind": null,

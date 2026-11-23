@@ -12,7 +12,7 @@ from app.agents.llm import get_structured_model, model_id
 
 
 class Kind(BaseModel):
-    kind: str  # request | report | cancellation | mi_invoice | other
+    kind: str  # request | report | cancellation | mega_invoice | other
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
     print("модел:", model_id(agent))
     out = get_structured_model(agent, Kind).invoke(
         [
-            ("system", "Класифицирай писмото: request, report, cancellation, mi_invoice или other."),
+            ("system", "Класифицирай писмото: request, report, cancellation, mega_invoice или other."),
             ("human", "Здравейте, моля за 3 камиона слънчоглед утре сутрин. Поздрави, Иван"),
         ]
     )

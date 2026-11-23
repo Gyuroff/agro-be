@@ -53,7 +53,7 @@ class CardResolution(StrEnum):
     IGNORED = "ignored"
     HIDDEN = "hidden"
     ISSUED = "issued"
-    MI_CORRECT = "mi_correct"
+    MEGA_CORRECT = "mega_correct"
     NOTIFY_ACCOUNTANT = "notify_accountant"
     RETRIED = "retried"
 
@@ -64,7 +64,7 @@ class AgentName(StrEnum):
     REPORT_PARSER = "report_parser"
     REPORT_MATCHER = "report_matcher"
     CANCELLATION_PARSER = "cancellation_parser"
-    MI_INVOICE_PARSER = "mi_invoice_parser"
+    MEGA_INVOICE_PARSER = "mega_invoice_parser"
     INVOICE_COMPARATOR = "invoice_comparator"
 
 

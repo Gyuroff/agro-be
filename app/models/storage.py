@@ -13,7 +13,7 @@ class StoredObjectKind(StrEnum):
     EMAIL_RAW = "email_raw"
     ATTACHMENT = "attachment"
     INVOICE_PDF = "invoice_pdf"
-    MI_XML = "mi_xml"
+    MEGA_XML = "mega_xml"
     OTHER = "other"
 
 

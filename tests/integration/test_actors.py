@@ -16,7 +16,7 @@ EXPECTED_CODES = {
     "agent:report_parser",
     "agent:report_matcher",
     "agent:cancellation_parser",
-    "agent:mi_invoice_parser",
+    "agent:mega_invoice_parser",
     "agent:invoice_comparator",
 }
 

@@ -38,7 +38,7 @@ UNVERIFIED_REASON = "непроверен подател"
 UNKNOWN_TITLE = "Имейл от непознат подател"
 
 # Обработчик на вид: (session, email) → нов статус на писмото. Агентите за видовете се регистрират тук
-# от своите тикети (6p5.4 request, 6p5.5 report, 6p5.6 cancellation, 6p5.7 mi_invoice).
+# от своите тикети (6p5.4 request, 6p5.5 report, 6p5.6 cancellation, 6p5.7 mega_invoice).
 KindHandler = Callable[[Session, InboundEmail], InboundStatus]
 KIND_HANDLERS: dict[EmailKind, KindHandler] = {}
 

@@ -35,7 +35,7 @@ class CompanySettings(AuditMixin, Base):
     invoice_rounding_tolerance_eur: Mapped[Decimal] = mapped_column(
         Money, nullable=False, server_default=text("0.01")
     )
-    mi_invoice_grace_working_days: Mapped[int] = mapped_column(
+    mega_invoice_grace_working_days: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("2")
     )
     mailbox_alarm_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("60"))

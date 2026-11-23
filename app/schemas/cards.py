@@ -104,12 +104,12 @@ class InvoiceDuePayload(_Payload):
 class ComparisonRow(_Payload):
     label: str
     erp: str
-    mi: str
+    mega: str
 
 
 class InvoiceMismatchPayload(_Payload):
     comparison_id: int
-    mi_number: str
+    mega_number: str
     period_from: date
     period_to: date
     rows: list[ComparisonRow]

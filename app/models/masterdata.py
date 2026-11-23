@@ -57,7 +57,7 @@ class Counterparty(AuditMixin, Base):
     __tablename__ = "counterparties"
     __table_args__ = (
         CheckConstraint("eik ~ '^[0-9]{9}([0-9]{4})?$'", name="eik_format"),
-        CheckConstraint("invoicing_mode <> 'erp' OR microinvest_code IS NOT NULL", name="erp_needs_mi_code"),
+        CheckConstraint("invoicing_mode <> 'erp' OR mega_code IS NOT NULL", name="erp_needs_mega_code"),
         enum_check("invoicing_mode", InvoicingMode),
         enum_check("order_format", OrderFormat),
         CheckConstraint(
@@ -91,7 +91,7 @@ class Counterparty(AuditMixin, Base):
     address_city: Mapped[str | None] = mapped_column(Text, nullable=True)
     address_line: Mapped[str | None] = mapped_column(Text, nullable=True)
     mol: Mapped[str | None] = mapped_column(Text, nullable=True)
-    microinvest_code: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    mega_code: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
     invoice_email: Mapped[str | None] = mapped_column(Text, nullable=True)
     invoicing_mode: Mapped[str] = mapped_column(
         Text,
@@ -192,7 +192,7 @@ class Product(AuditMixin, Base):
     unit: Mapped[str] = mapped_column(
         Text, nullable=False, default=ProductUnit.TONNE.value, server_default=ProductUnit.TONNE.value
     )
-    microinvest_code: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    mega_code: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
     vat_rate: Mapped[Decimal] = mapped_column(
         Pct, nullable=False, default=Decimal("20.00"), server_default=text("20.00")
     )

@@ -46,8 +46,8 @@
   }
  },
  {
-  "name": "mi_invoice",
-  "expected": "mi_invoice",
+  "name": "mega_invoice",
+  "expected": "mega_invoice",
   "confidence": 0.97,
   "reason": "Прикачена е фактура от Мега с номер и редове.",
   "input": {

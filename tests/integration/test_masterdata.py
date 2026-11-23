@@ -38,14 +38,14 @@ def test_valid_eik(db_session: Session, audit_ctx: AuditContext, eik: str) -> No
     db_session.flush()
 
 
-def test_erp_requires_microinvest_code(db_session: Session, audit_ctx: AuditContext) -> None:
+def test_erp_requires_mega_code(db_session: Session, audit_ctx: AuditContext) -> None:
     db_session.add(_cp(invoicing_mode="erp"))
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
-def test_erp_with_microinvest_code_ok(db_session: Session, audit_ctx: AuditContext) -> None:
-    db_session.add(_cp(invoicing_mode="erp", microinvest_code="K1"))
+def test_erp_with_mega_code_ok(db_session: Session, audit_ctx: AuditContext) -> None:
+    db_session.add(_cp(invoicing_mode="erp", mega_code="K1"))
     db_session.flush()
 
 

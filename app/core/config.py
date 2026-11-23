@@ -93,8 +93,8 @@ class Settings(BaseSettings):
 
     # Други
     ingest_token: SecretStr | None = None
-    mi_test_export_dir: str | None = None
-    mi_prod_export_dir: str | None = None
+    mega_test_export_dir: str | None = None
+    mega_prod_export_dir: str | None = None
     cors_origins: str = ""
 
 

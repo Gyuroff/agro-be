@@ -60,7 +60,7 @@
 
 ## agro-l2v.13 — код готов
 - `app/domain/money.py`, `billing.py`, `tests/unit/test_domain_money_dates_billing.py`; domain 100 %.
-- Решение на собственика: ден за фактуриране в почивен/празничен ден → най-близкия ПРЕДИШЕН работен ден (`app/domain/dates.py`, библиотеката `holidays` за BG вкл. компенсираните дни; външно API не ползваме — Nager.Date пропуска 28.12.2026). `mi_invoice_grace_working_days` пак е в работни дни. Docs в agro-app са обновени.
+- Решение на собственика: ден за фактуриране в почивен/празничен ден → най-близкия ПРЕДИШЕН работен ден (`app/domain/dates.py`, библиотеката `holidays` за BG вкл. компенсираните дни; външно API не ползваме — Nager.Date пропуска 28.12.2026). `mega_invoice_grace_working_days` пак е в работни дни. Docs в agro-app са обновени.
 - `vat(amount, rate)` — ставката е в проценти (20.00). `next_billing_date` е `>= днес`, `previous_billing_date` е `< днес`.
 
 
@@ -128,13 +128,13 @@
   трябва да се сменят (споделени в чат).
 - Домейнът е торове/фуражи/пелети (КАН, УАН, фуражовози), не зърно. Кутиите се препращат една към друга → дублиране по `Message-ID` (ha8.1).
 - В реалната поща НЯМА входящи откази на курсове (`АНУЛИРАНЕ` са изходящи за УНП) → `cancellation` остава само синтетичен.
-- Етикетите в `real_cases.json` са мои преценки (`label_verified=false`), собственикът да ги потвърди. Особено: фактури PDF → `mi_invoice`
+- Етикетите в `real_cases.json` са мои преценки (`label_verified=false`), собственикът да ги потвърди. Особено: фактури PDF → `mega_invoice`
   (не е ясно кои са от Мега), проформа → `other`, xlsx „Raboten fail“ на клиент → `request`.
 - Промптът е `email_classifier@2` (описания по реалните примери). Eval с реален Haiku (`PYTHONPATH=. APP_LLM_PROVIDER=anthropic uv run python
   scripts/eval_classifier.py`): 23/24; единствената грешка — само „ФАКТУРА“+PDF, увереност 0.60 → `other` по правилото.
 - Word-HTML писма (напр. „справка КАН“) имат XML боклук (`w:LatentStyles`) и в text/plain → `clean_email_text` не го маха; да се реши в ha8.1/inputs.
 - Stub тестовете проверяват само водопровода (отговорът е записаният етикет); точността се мери със `scripts/eval_classifier.py` (влиза в 6p5.9).
-- Обновление след отговор на собственика: xlsx на клиент = `request` (потвърдено). Фактурите/проформите от ДОСТАВЧИЦИ НЕ са `mi_invoice` (ползват Мегасофт)
+- Обновление след отговор на собственика: xlsx на клиент = `request` (потвърдено). Фактурите/проформите от ДОСТАВЧИЦИ НЕ са `mega_invoice` (ползват Мегасофт)
   и не са `other` (проформата води до фактура) → в enum-а няма вид за тях; не е измислен. 5 случая са `pending_spec` (пропускат се в тестовете и точността),
   въпросът е в `bd note agro-6p5.3`. Eval с реален Haiku върху останалите: 19/19.
 
@@ -262,4 +262,9 @@
 - `app/services/payment_questions.py`: обработчик → карта `payment_question` (`invoice_number` с regex от темата/тялото; няма → null), действия `reply_paid`/`reply_will_pay`/`ignore`. Отговорът е `payment_reply` в нишката, `undo_token` = `make_undo_token` (същият `RequestService.undo`; след „Отмени“ се ползва същото писмо). `attachment_ids` ≠ [] → 400 (не е направено). Регистрира се при импорт от `inbound_mail` (worker) и от `routers/cards.py` (API).
 - `reply` без карта: `_handle_reply` → `processed`; етикетът се смята при четене (agro-nfi).
 - `inquiry` и `supplier_doc` още нямат обработчик (→ `needs_action` + лог): `one_shot_deals` няма модел; `to_one_shot`/`confirm_link` чакат.
-- Eval с реален Haiku (`scripts/eval_classifier.py`, вече проверява и `doc_kind`/`reply_status`): 29/30, 30/30, 29/30 в три пуска. Единственото колебание е `real_11` (две „Проф ф-ра“, GDPR бележка; видът е верен, увереност 0.60–0.70 → под прага става `other`). Критерият „≥95%“ е изпълнен (29/30 = 96,7% във всеки пуск); `real_11` е единственото колебание; `real_12` е вече `reply`/confirmed. Синтетичният `mi_invoice` е променен да е ясно от Мега (иначе е неразличим от `supplier_doc`).
+- Eval с реален Haiku (`scripts/eval_classifier.py`, вече проверява и `doc_kind`/`reply_status`): 29/30, 30/30, 29/30 в три пуска. Единственото колебание е `real_11` (две „Проф ф-ра“, GDPR бележка; видът е верен, увереност 0.60–0.70 → под прага става `other`). Критерият „≥95%“ е изпълнен (29/30 = 96,7% във всеки пуск); `real_11` е единственото колебание; `real_12` е вече `reply`/confirmed. Синтетичният `mega_invoice` е променен да е ясно от Мега (иначе е неразличим от `supplier_doc`).
+
+## agro-6xw: mi_* / microinvest_* → mega_*
+- Миграция `0017_rename_mi_to_mega.py` (нагоре/надолу/`alembic check` минават): колони `mega_code`, `mega_invoice_grace_working_days`, constraint-и, CHECK за `inbound_emails.kind`, `agent_runs.agent`, `action_cards.resolution`, `stored_objects.kind` + UPDATE на съществуващите редове, `actors.code='agent:mega_invoice_parser'`, `dedupe_key mi_missing:` → `mega_missing:`.
+- Env: `APP_MEGA_TEST_EXPORT_DIR` / `APP_MEGA_PROD_EXPORT_DIR`. API: `mega_number`, `rows[].mega`, resolution `mega_correct`. Деплой в един ден с agro-app (Flutter).
+- Stub fixtures на класификатора са прегенерирани (sha1 зависи от промпта). Eval: 30/30.
