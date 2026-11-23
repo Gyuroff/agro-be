@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routers import auth, cards, emails, health, requests, trips
+from app.api.routers import auth, cards, emails, health, me, requests, trips
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router, prefix="/api/v1")
+    app.include_router(me.router, prefix="/api/v1")
     app.include_router(cards.router, prefix="/api/v1")
     app.include_router(trips.router, prefix="/api/v1")
     app.include_router(requests.router, prefix="/api/v1")
