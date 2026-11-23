@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routers import auth, cards, contracts, emails, health, me, reports, requests, trips
+from app.api.routers import auth, cards, contracts, emails, health, me, reports, requests, result, trips
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging
@@ -26,4 +26,5 @@ def create_app() -> FastAPI:
     app.include_router(requests.router, prefix="/api/v1")
     app.include_router(emails.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
+    app.include_router(result.router, prefix="/api/v1")
     return app
