@@ -14,3 +14,4 @@ class ConfigDTO(BaseModel):
     app_lock_background_minutes: int
     biometric_max_attempts: int
     company_short_name: str
+    action_mode: Literal["advisory", "live"]

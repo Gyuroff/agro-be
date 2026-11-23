@@ -6,14 +6,18 @@ from decimal import Decimal
 from sqlalchemy import BigInteger, CheckConstraint, Integer, Text, Time, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import AuditMixin, Base, Money, Pct, Tonnes
+from app.db.base import AuditMixin, Base, Money, Pct, Tonnes, enum_check
+from app.models.proposals import ActionMode
 
 
 class CompanySettings(AuditMixin, Base):
     """Точно един ред, `id = 1`."""
 
     __tablename__ = "company_settings"
-    __table_args__ = (CheckConstraint("id = 1", name="single_row"),)
+    __table_args__ = (
+        CheckConstraint("id = 1", name="single_row"),
+        enum_check("action_mode", ActionMode),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     legal_name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -45,6 +49,9 @@ class CompanySettings(AuditMixin, Base):
     )
     biometric_max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("3"))
     shadow_cycles_required: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("3"))
+    action_mode: Mapped[str] = mapped_column(
+        Text, nullable=False, default=ActionMode.ADVISORY.value, server_default=ActionMode.ADVISORY.value
+    )
     push_quiet_from: Mapped[time] = mapped_column(Time, nullable=False, server_default=text("'21:00'"))
     push_quiet_to: Mapped[time] = mapped_column(Time, nullable=False, server_default=text("'07:00'"))
 

@@ -45,6 +45,7 @@ from app.schemas.requests import (
     WarehouseRef,
 )
 from app.services import outbound as outbound_service
+from app.services.action_gateway import ProposalSpec
 from app.services.cards import ActionResult, CardService, register_action
 from app.services.contract_alerts import check_over
 from app.services.offers import best_offer
@@ -630,6 +631,22 @@ class RequestService:
         )
 
     @staticmethod
+    def propose_send(session: Session, card: ActionCard, body: dict[str, Any]) -> ProposalSpec:
+        """Съветен режим: същите писма като `preview` (същият `compose`); нищо не се изпраща."""
+        if card.client_request_id is None:
+            raise DomainError("not_found", "Картата няма заявка.", http_status=404)
+        request = RequestService.get(session, card.client_request_id)
+        emails = RequestService.preview(session, request).emails
+        count = len(emails)
+        title = "Бих изпратила 1 писмо" if count == 1 else f"Бих изпратила {count} писма"
+        return ProposalSpec(
+            kind="send_request",
+            title=title,
+            payload={"emails": [e.model_dump(mode="json") for e in emails]},
+            deal_ref=f"client_requests:{request.id}",
+        )
+
+    @staticmethod
     def send(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
         if card.client_request_id is None:
             raise DomainError("not_found", "Картата няма заявка.", http_status=404)
@@ -786,7 +803,9 @@ class RequestService:
 
 
 def register() -> None:
-    register_action(CardKind.CLIENT_REQUEST, "send", RequestService.send)
+    register_action(
+        CardKind.CLIENT_REQUEST, "send", RequestService.send, advisory=RequestService.propose_send
+    )
     register_action(CardKind.CLIENT_REQUEST, "reject", RequestService.reject)
     outbound_service.register_before_send(OutboundPurpose.SUPPLIER_ORDER, RequestService.finalize)
 

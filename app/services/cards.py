@@ -22,7 +22,9 @@ from app.core import clock
 from app.core.audit_context import get_audit_context
 from app.core.errors import DomainError
 from app.models.cards import ActionCard, CardKind, CardResolution, CardStatus
+from app.models.proposals import ActionProposal
 from app.schemas.cards import PAYLOAD_MODELS
+from app.services.action_gateway import ProposalBuilder, is_advisory, propose
 
 log = logging.getLogger(__name__)
 
@@ -64,19 +66,29 @@ class CardNotOpen(DomainError):
 
 @dataclass(frozen=True)
 class ActionResult:
-    snackbar: str
+    """`snackbar=None` + `proposal` — действието е блокирано от съветния режим (нищо не е изпълнено)."""
+
+    snackbar: str | None
     undo_token: str | None = None
+    proposal: ActionProposal | None = None
 
 
 ActionHandler = Callable[[Session, ActionCard, dict[str, Any]], ActionResult]
 _handlers: dict[tuple[CardKind, str], ActionHandler] = {}
+_advisory: dict[tuple[CardKind, str], ProposalBuilder] = {}
 
 
-def register_action(kind: CardKind, action: str, handler: ActionHandler) -> None:
+def register_action(
+    kind: CardKind, action: str, handler: ActionHandler, *, advisory: ProposalBuilder | None = None
+) -> None:
+    """`advisory` — само за действия с външен ефект: при `action_mode = advisory` вместо `handler`
+    се вика то и резултатът е предложение (`ActionGateway`)."""
     key = (kind, action)
     if key in _handlers:
         raise RuntimeError(f"Действието {kind.value}/{action} вече е регистрирано.")
     _handlers[key] = handler
+    if advisory is not None:
+        _advisory[key] = advisory
 
 
 # Видовете с общо „Скрий“ (docs/data-model.md §10, таблицата на бутоните).
@@ -204,6 +216,11 @@ class CardService:
             raise DomainError("not_found", "Непознато действие.", http_status=404)
         if card.status != CardStatus.OPEN.value:
             raise CardNotOpen
+        builder = _advisory.get((CardKind(card.kind), action))
+        if builder is not None and is_advisory(session):  # блокирано: картата остава отворена
+            proposal = propose(session, card, builder(session, card, body))
+            session.flush()
+            return card, ActionResult(None, None, proposal)
         result = handler(session, card, body)
         session.flush()
         return card, result

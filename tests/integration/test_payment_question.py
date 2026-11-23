@@ -32,6 +32,8 @@ from app.services.requests import RequestService
 SUBJECT = "фактура в падеж"
 BODY = "Моля, проверете дали фактура № 4226 е платена."
 
+pytestmark = pytest.mark.usefixtures("live_mode")
+
 
 def _mail(db: Session) -> InboundEmail:
     cp = Counterparty(name="Амар Спед", legal_name="Амар Спед ООД", eik="111222333")

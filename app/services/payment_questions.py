@@ -11,12 +11,15 @@ from sqlalchemy.orm import Session
 
 from app.core import clock
 from app.core.errors import DomainError
+from app.mail import smtp
 from app.models.cards import ActionCard, CardKind, CardResolution, CardStatus
+from app.models.company import CompanySettings
 from app.models.mail import InboundEmail, InboundStatus, OutboundEmail, OutboundPurpose, OutboundStatus
 from app.models.masterdata import Counterparty
 from app.schemas.cards import PaymentQuestionPayload
 from app.services import inbound_mail
 from app.services import outbound as outbound_service
+from app.services.action_gateway import ProposalSpec
 from app.services.cards import ActionResult, CardService, register_action
 from app.services.outbound import OutboundService
 from app.services.requests import make_undo_token
@@ -76,13 +79,21 @@ def _parse[T: BaseModel](model: type[T], body: dict[str, Any]) -> T:
         raise DomainError("validation_error", "Невалидни данни.", http_status=400, fields=fields) from exc
 
 
-def _reply(session: Session, card: ActionCard, default_text: str, custom: str | None) -> ActionResult:
+def _compose_reply(
+    session: Session, card: ActionCard, default_text: str, custom: str | None
+) -> tuple[InboundEmail, str, str]:
+    """`(входящо писмо, тема, текст)` — единственото място, което сглобява отговора (и за предложението)."""
     inbound = session.get(InboundEmail, card.inbound_email_id) if card.inbound_email_id else None
     if inbound is None:
         raise DomainError("not_found", "Картата няма писмо.", http_status=404)
     text = (custom or "").strip() or default_text
     subject = inbound.subject or ""
     subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+    return inbound, subject, text
+
+
+def _reply(session: Session, card: ActionCard, default_text: str, custom: str | None) -> ActionResult:
+    inbound, subject, text = _compose_reply(session, card, default_text, custom)
     existing = (
         session.get(OutboundEmail, card.outbound_email_id, with_for_update=True)
         if card.outbound_email_id
@@ -108,7 +119,7 @@ def _reply(session: Session, card: ActionCard, default_text: str, custom: str | 
     return ActionResult("Отговорът е изпратен", make_undo_token([outbound.id]))
 
 
-def reply_paid(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
+def _paid_reply(body: dict[str, Any]) -> tuple[str, str | None]:
     data = _parse(_PaidBody, body)
     if data.attachment_ids:
         raise DomainError(
@@ -118,12 +129,45 @@ def reply_paid(session: Session, card: ActionCard, body: dict[str, Any]) -> Acti
             fields={"attachment_ids": "не се поддържа"},
         )
     paid_on = data.paid_on or clock.today_sofia()
-    return _reply(session, card, f"Платено е на {_fmt(paid_on)}.", data.body_text)
+    return f"Платено е на {_fmt(paid_on)}.", data.body_text
+
+
+def _will_pay_reply(body: dict[str, Any]) -> tuple[str, str | None]:
+    data = _parse(_WillPayBody, body)
+    return f"Ще извършим плащането до {_fmt(data.pay_by)}.", data.body_text
+
+
+def reply_paid(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
+    return _reply(session, card, *_paid_reply(body))
 
 
 def reply_will_pay(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
-    data = _parse(_WillPayBody, body)
-    return _reply(session, card, f"Ще извършим плащането до {_fmt(data.pay_by)}.", data.body_text)
+    return _reply(session, card, *_will_pay_reply(body))
+
+
+def _proposal(
+    session: Session, card: ActionCard, kind: str, default_text: str, custom: str | None
+) -> ProposalSpec:
+    inbound, subject, text = _compose_reply(session, card, default_text, custom)
+    company = session.get(CompanySettings, 1)
+    return ProposalSpec(
+        kind=kind,
+        title="Бих отговорила на въпроса за плащане",
+        payload={
+            "to": inbound.from_address,
+            "subject": subject,
+            "body_text": smtp.render_body(text, company.email_signature if company else ""),
+        },
+        deal_ref=f"inbound_emails:{inbound.id}",
+    )
+
+
+def propose_reply_paid(session: Session, card: ActionCard, body: dict[str, Any]) -> ProposalSpec:
+    return _proposal(session, card, "reply_payment", *_paid_reply(body))
+
+
+def propose_reply_will_pay(session: Session, card: ActionCard, body: dict[str, Any]) -> ProposalSpec:
+    return _proposal(session, card, "reply_payment", *_will_pay_reply(body))
 
 
 def ignore(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionResult:
@@ -132,8 +176,10 @@ def ignore(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionRe
 
 
 def register() -> None:
-    register_action(CardKind.PAYMENT_QUESTION, "reply_paid", reply_paid)
-    register_action(CardKind.PAYMENT_QUESTION, "reply_will_pay", reply_will_pay)
+    register_action(CardKind.PAYMENT_QUESTION, "reply_paid", reply_paid, advisory=propose_reply_paid)
+    register_action(
+        CardKind.PAYMENT_QUESTION, "reply_will_pay", reply_will_pay, advisory=propose_reply_will_pay
+    )
     register_action(CardKind.PAYMENT_QUESTION, "ignore", ignore)
     inbound_mail.KIND_HANDLERS[inbound_mail.EmailKind.PAYMENT_QUESTION] = handle
 

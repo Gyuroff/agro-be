@@ -96,3 +96,12 @@ def audit_ctx(db_session: Session) -> Iterator[AuditContext]:
     assert actor_id is not None
     with audit_context(AuditContext(actor_id, AuditSource.SEED, request_id="test-req")) as ctx:
         yield ctx
+
+
+@pytest.fixture
+def live_mode(db_session: Session, audit_ctx: AuditContext) -> None:
+    """Миграцията сее `action_mode = advisory`; тестовете на истинското изпълнение го пускат `live`."""
+    from app.models.company import CompanySettings
+
+    db_session.get_one(CompanySettings, 1).action_mode = "live"
+    db_session.flush()

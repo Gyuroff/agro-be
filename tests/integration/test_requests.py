@@ -30,6 +30,8 @@ from tests.integration.test_trips import World
 
 D = Decimal
 
+pytestmark = pytest.mark.usefixtures("live_mode")
+
 
 class Setup:
     def __init__(self, session: Session) -> None:

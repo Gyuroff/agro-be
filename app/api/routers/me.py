@@ -15,6 +15,7 @@ def config(_principal: CurrentPrincipal, session: DbSession) -> ConfigDTO:
         app_lock_background_minutes=settings.app_lock_background_minutes,
         biometric_max_attempts=settings.biometric_max_attempts,
         company_short_name=settings.short_name,
+        action_mode=settings.action_mode,  # type: ignore[arg-type]
     )
 
 

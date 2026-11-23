@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.schemas.cards import Dec
+from app.schemas.proposals import ProposalDTO
 from app.schemas.trips import TripListItemDTO
 
 
@@ -34,5 +35,6 @@ class DashboardDTO(BaseModel):
 
 class CardActionResponse(BaseModel):
     card: CardDTO | None
-    snackbar: str
+    snackbar: str | None
     undo_token: str | None
+    proposal: ProposalDTO | None = None

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body
 from app.api.deps import CurrentPrincipal, DbSession
 from app.models.cards import CardStatus
 from app.schemas.dashboard import CardActionResponse, DashboardDTO
+from app.schemas.proposals import ProposalDTO
 from app.services import payment_questions as _payment_questions  # noqa: F401  (регистрира действията)
 from app.services.cards import CardService
 from app.services.dashboard import build_dashboard, card_dto
@@ -32,4 +33,5 @@ def card_action(
         card=card_dto(card) if still_open else None,
         snackbar=result.snackbar,
         undo_token=result.undo_token,
+        proposal=ProposalDTO.model_validate(result.proposal) if result.proposal is not None else None,
     )
