@@ -23,6 +23,7 @@ from app.models.reports import LineResolution, MatchStatus, ReportStatus, Suppli
 from app.models.trips import Trip, TripOrigin
 from app.services.cards import ActionResult, CardService, register_action
 from app.services.contract_alerts import check_over
+from app.services.report_matching import counts_as_matched
 from app.services.trips import TripService
 
 
@@ -154,12 +155,13 @@ class ReportService:
         completed = 0
 
         for line in lines:
-            if line.match_status == MatchStatus.MATCHED.value and line.trip_id is not None:
+            if counts_as_matched(line) and line.trip_id is not None:
+                assert line.qty_t is not None
                 trip = session.get(Trip, line.trip_id)
                 assert trip is not None
                 trips.complete(
                     trip,
-                    actual_qty_t=line.qty_t if line.qty_t is not None else trip.planned_qty_t,
+                    actual_qty_t=line.qty_t,
                     load_date=line.load_date or trip.planned_date,
                     supplier_report_line_id=line.id,
                 )

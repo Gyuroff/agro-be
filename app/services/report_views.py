@@ -13,6 +13,7 @@ from app.schemas.cards import ReportSubstitute
 from app.schemas.reports import ReportCountsDTO, ReportDTO, ReportMatchedDTO
 from app.schemas.trips import IdName
 from app.services.email_views import _attachment_dto
+from app.services.report_matching import counts_as_matched
 
 
 def get_report(session: Session, report_id: int) -> SupplierReport:
@@ -80,7 +81,7 @@ def report_dto(session: Session, report: SupplierReport) -> ReportDTO:
         trip = session.get(Trip, line.trip_id) if line.trip_id else None
         if trip is not None and trip.customer_id is not None and trip.customer_id not in customer_ids:
             customer_ids.append(trip.customer_id)
-        if line.match_status == MatchStatus.MATCHED.value and trip is not None:
+        if counts_as_matched(line) and trip is not None:
             matched.append(
                 ReportMatchedDTO(
                     line_id=line.id,
@@ -105,7 +106,7 @@ def report_dto(session: Session, report: SupplierReport) -> ReportDTO:
         from_address=email.from_address,
         attachment=_attachment_dto(attachment) if attachment else None,
         counts=ReportCountsDTO(
-            matched=count(MatchStatus.MATCHED),
+            matched=sum(1 for line in lines if counts_as_matched(line)),
             unplanned=count(MatchStatus.UNPLANNED),
             missing=count(MatchStatus.MISSING),
         ),

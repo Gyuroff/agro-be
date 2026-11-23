@@ -99,14 +99,19 @@ def _outbound_id(session: Session, email: InboundEmail) -> int | None:
     return None
 
 
-def email_agent_input(session: Session, email: InboundEmail, *, row_numbers: bool = False) -> dict[str, Any]:
+def email_agent_input(
+    session: Session, email: InboundEmail, *, row_numbers: bool = False, windowed: bool = True
+) -> dict[str, Any]:
+    """`windowed=False` — без прозорец по „Дата на изпълнение“ (справките са за минали дати)."""
     attachments: list[dict[str, str]] = []
     for att in session.scalars(select(EmailAttachment).where(EmailAttachment.inbound_email_id == email.id)):
         item = {"name": att.filename}
         if att.filename.lower().endswith(".xlsx"):
             try:
                 item["tsv"] = xlsx_to_tsv(
-                    att.storage_path, window=date_window(email.received_at.date()), row_numbers=row_numbers
+                    att.storage_path,
+                    window=date_window(email.received_at.date()) if windowed else None,
+                    row_numbers=row_numbers,
                 )
             except Exception:  # повреден файл не бива да спира обработката; агентът го вижда само по името
                 log.warning("xlsx %s на писмо %s не се чете", att.filename, email.id)
@@ -196,4 +201,4 @@ def _handle_reply(session: Session, email: InboundEmail) -> InboundStatus:
 
 KIND_HANDLERS[EmailKind.REPLY] = _handle_reply
 
-from app.services import payment_questions, request_intake  # noqa: E402,F401  (регистрират обработчиците)
+from app.services import payment_questions, report_intake, request_intake  # noqa: E402,F401  (регистрират обработчиците)

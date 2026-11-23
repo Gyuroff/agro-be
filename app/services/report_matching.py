@@ -19,6 +19,14 @@ from app.models.trips import Trip, TripStatus
 _TOLERANCE = timedelta(days=1)
 
 
+def counts_as_matched(line: SupplierReportLine) -> bool:
+    """Съвпадение, което се брои и се отбелязва при `confirm`: има тонаж.
+
+    Ред без тонаж остава `matched` (курсът е намерен), но човекът го решава (agro-6p5.5).
+    """
+    return line.match_status == MatchStatus.MATCHED.value and line.qty_t is not None
+
+
 def _file_lines(session: Session, report: SupplierReport) -> list[SupplierReportLine]:
     return list(
         session.scalars(
