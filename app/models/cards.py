@@ -142,8 +142,10 @@ class ActionCard(AuditMixin, Base):
     client_request_id: Mapped[int | None] = mapped_column(ForeignKey("client_requests.id"), nullable=True)
     supplier_report_id: Mapped[int | None] = mapped_column(ForeignKey("supplier_reports.id"), nullable=True)
     contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
-    invoice_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.10)
-    invoice_comparison_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.10)
+    invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
+    invoice_comparison_id: Mapped[int | None] = mapped_column(
+        ForeignKey("invoice_comparisons.id"), nullable=True
+    )
     payload: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )

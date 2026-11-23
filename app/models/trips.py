@@ -162,7 +162,7 @@ class Trip(AuditMixin, Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_source: Mapped[str | None] = mapped_column(Text, nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    invoice_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK → invoices (l2v.10)
+    invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
 
 
 class ClientRequestLine(AuditMixin, Base):

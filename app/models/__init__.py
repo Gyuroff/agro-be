@@ -5,6 +5,14 @@ from app.models.cards import ActionCard, AgentRun, PushNotification
 from app.models.company import CompanySettings, NumberSequence
 from app.models.contracts import Contract, ContractPrice
 from app.models.identity import Actor, Device, RefreshToken, User
+from app.models.invoicing import (
+    Invoice,
+    InvoiceComparison,
+    InvoiceLine,
+    InvoiceTrip,
+    MegaExport,
+    MegaInvoice,
+)
 from app.models.mail import EmailAttachment, InboundEmail, MailboxPoll, OutboundEmail
 from app.models.masterdata import Contact, Counterparty, CounterpartyDomain, Product, Warehouse
 from app.models.proposals import ActionProposal
@@ -32,7 +40,13 @@ __all__ = [
     "Expense",
     "ExpenseCategory",
     "InboundEmail",
+    "Invoice",
+    "InvoiceComparison",
+    "InvoiceLine",
+    "InvoiceTrip",
     "MailboxPoll",
+    "MegaExport",
+    "MegaInvoice",
     "MonthlyResultOpening",
     "NumberSequence",
     "OutboundEmail",
