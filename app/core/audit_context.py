@@ -47,6 +47,14 @@ def audit_context(ctx: AuditContext) -> Generator[AuditContext]:
         _current.reset(token)
 
 
+def set_audit_context(ctx: AuditContext) -> None:
+    """Задава контекста за останалата част от текущата заявка/задача (без връщане назад).
+
+    Само за входни точки, които нямат `with`-обхват около изгледа (SQLAdmin `authenticate`).
+    """
+    _current.set(ctx)
+
+
 def get_audit_context() -> AuditContext:
     ctx = _current.get()
     if ctx is None:
