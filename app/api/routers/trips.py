@@ -6,6 +6,8 @@ from fastapi import APIRouter, Query
 from app.api.deps import CurrentPrincipal, DbSession
 from app.models.trips import CancelSource
 from app.schemas.trips import CancelTripRequest, LinkContractRequest, TripDetailDTO, TripListDTO
+from app.services.contract_alerts import check_over
+from app.services.contract_views import get_contract
 from app.services.trip_views import check_version, get_trip, list_trips, trip_detail
 from app.services.trips import TripService
 
@@ -36,7 +38,9 @@ def trip_cancel(
     trip = get_trip(session, trip_id)
     check_version(trip, body.version)
     TripService(session).cancel(trip, source=CancelSource.USER, reason=body.reason)
-    # TODO(T4.3): преизчисляване на картата contract_over — помощникът още не съществува.
+    for contract_id in (trip.sale_contract_id, trip.purchase_contract_id):
+        if contract_id is not None:
+            check_over(session, get_contract(session, contract_id))
     return trip_detail(session, trip)
 
 

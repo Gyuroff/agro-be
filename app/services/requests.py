@@ -7,7 +7,7 @@
 - `send` НЕ създава курсове: слага заявката и писмото в `queued`; курсовете се създават от `finalize`,
   която `mail.send_outbound` вика в същата транзакция преди SMTP (регистрира се през `register_before_send`).
 - `undo` връща писмото и заявката в `draft`, а картата в `open`.
-- TODO(T4.3): след `finalize` трябва да се преизчисли `contract_over` — помощникът още не съществува.
+- След `finalize` се преизчислява `contract_over` на продажния договор (`contract_alerts.check_over`).
 """
 
 from datetime import date
@@ -46,6 +46,7 @@ from app.schemas.requests import (
 )
 from app.services import outbound as outbound_service
 from app.services.cards import ActionResult, CardService, register_action
+from app.services.contract_alerts import check_over
 from app.services.offers import best_offer
 from app.services.outbound import OutboundService
 from app.services.stock import check_stock_low
@@ -781,7 +782,7 @@ class RequestService:
             request.status = RequestStatus.SENT.value
         session.flush()
         check_stock_low(session, sale.product_id)
-        # TODO(T4.3): check_over(sale_contract) — виж docstring на модула.
+        check_over(session, sale)
 
 
 def register() -> None:
