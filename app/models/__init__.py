@@ -7,6 +7,7 @@ from app.models.contracts import Contract, ContractPrice
 from app.models.identity import Actor, Device, RefreshToken, User
 from app.models.mail import EmailAttachment, InboundEmail, MailboxPoll, OutboundEmail
 from app.models.masterdata import Contact, Counterparty, CounterpartyDomain, Product, Warehouse
+from app.models.reports import SupplierReport, SupplierReportLine
 from app.models.storage import StoredObject
 from app.models.trips import ClientRequest, ClientRequestLine, Trip, TripEvent
 
@@ -33,6 +34,8 @@ __all__ = [
     "PushNotification",
     "RefreshToken",
     "StoredObject",
+    "SupplierReport",
+    "SupplierReportLine",
     "Trip",
     "TripEvent",
     "User",

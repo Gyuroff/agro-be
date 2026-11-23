@@ -155,7 +155,9 @@ class Trip(AuditMixin, Base):
     load_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     sale_price_per_t: Mapped[Decimal | None] = mapped_column(PricePerT, nullable=True)
     purchase_price_per_t: Mapped[Decimal | None] = mapped_column(PricePerT, nullable=True)
-    supplier_report_line_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.8)
+    supplier_report_line_id: Mapped[int | None] = mapped_column(
+        ForeignKey("supplier_report_lines.id", use_alter=True), nullable=True
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_source: Mapped[str | None] = mapped_column(Text, nullable=True)

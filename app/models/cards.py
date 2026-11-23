@@ -140,7 +140,7 @@ class ActionCard(AuditMixin, Base):
     inbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("inbound_emails.id"), nullable=True)
     outbound_email_id: Mapped[int | None] = mapped_column(ForeignKey("outbound_emails.id"), nullable=True)
     client_request_id: Mapped[int | None] = mapped_column(ForeignKey("client_requests.id"), nullable=True)
-    supplier_report_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.8)
+    supplier_report_id: Mapped[int | None] = mapped_column(ForeignKey("supplier_reports.id"), nullable=True)
     contract_id: Mapped[int | None] = mapped_column(ForeignKey("contracts.id"), nullable=True)
     invoice_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.10)
     invoice_comparison_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # FK (l2v.10)
