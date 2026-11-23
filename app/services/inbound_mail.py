@@ -134,6 +134,8 @@ def _classify(session: Session, email: InboundEmail) -> bool:
     decision = decide(outcome.output)
     email.kind = decision.kind.value
     email.kind_confidence = outcome.output.confidence  # type: ignore[assignment]
+    email.doc_kind = decision.doc_kind.value if decision.doc_kind else None
+    email.reply_status = decision.reply_status.value if decision.reply_status else None
     if decision.uncertain:
         _unknown_sender_card(session, email, decision.reason, email.counterparty_id)
         return False
@@ -186,4 +188,12 @@ def _run(session: Session, email: InboundEmail) -> InboundStatus:
         return handler(session, email)
 
 
-from app.services import request_intake  # noqa: E402,F401  (регистрира обработчика на `request`)
+def _handle_reply(session: Session, email: InboundEmail) -> InboundStatus:
+    """Отговор на наше писмо: без карта. `kind`/`reply_status`/`replies_to_outbound_id` са вече записани;
+    етикетът „отговор“ се смята от тях при четене (docs/api.md)."""
+    return InboundStatus.PROCESSED
+
+
+KIND_HANDLERS[EmailKind.REPLY] = _handle_reply
+
+from app.services import payment_questions, request_intake  # noqa: E402,F401  (регистрират обработчиците)

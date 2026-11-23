@@ -1,0 +1,7 @@
+{
+  "kind": "supplier_doc",
+  "confidence": 0.92,
+  "reason": "Данъчна фактура от доставчик.",
+  "doc_kind": "invoice",
+  "reply_status": null
+}

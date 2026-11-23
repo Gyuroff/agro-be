@@ -34,6 +34,7 @@ class CardKind(StrEnum):
     ONE_SHOT_PAY_SUPPLIER = "one_shot_pay_supplier"
     SUPPLIER_ADVANCE_LOW = "supplier_advance_low"
     STOCK_LOW = "stock_low"
+    PAYMENT_QUESTION = "payment_question"
 
 
 class CardStatus(StrEnum):

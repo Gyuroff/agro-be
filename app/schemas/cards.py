@@ -171,6 +171,14 @@ class InquiryPayload(_Payload):
     suggested_counterparty_id: int | None
 
 
+class PaymentQuestionPayload(_Payload):
+    inbound_email_id: int
+    counterparty_name: str
+    invoice_number: str | None
+    subject: str
+    received_at: datetime
+
+
 class EmailPreview(_Payload):
     to: str
     subject: str
@@ -249,4 +257,5 @@ PAYLOAD_MODELS: dict[CardKind, type[_Payload]] = {
     CardKind.ONE_SHOT_PAY_SUPPLIER: OneShotPaySupplierPayload,
     CardKind.SUPPLIER_ADVANCE_LOW: SupplierAdvanceLowPayload,
     CardKind.STOCK_LOW: StockLowPayload,
+    CardKind.PAYMENT_QUESTION: PaymentQuestionPayload,
 }

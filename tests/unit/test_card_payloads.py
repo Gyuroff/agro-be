@@ -28,6 +28,7 @@ EXAMPLES: dict[CardKind, str] = {
     CardKind.SUPPLIER_DOC: """{ "deal_id": 12, "inbound_email_id": 840, "doc_kind": "proforma", "supplier_name": "Пелет АД", "qty_t": "300.000", "price_per_t": "550.00", "number": "123" }""",
     CardKind.ONE_SHOT_PAY_SUPPLIER: """{ "deal_id": 12, "supplier_name": "Пелет АД", "amount": "165000.00", "supplier_doc_number": "123" }""",
     CardKind.STOCK_LOW: """{ "product": "Пелети", "contracts": 3, "total_t": "3000.000", "taken_t": "2750.000", "remaining_t": "250.000", "remaining_pct": "8.33" }""",
+    CardKind.PAYMENT_QUESTION: """{ "inbound_email_id": 850, "counterparty_name": "Амар Спед", "invoice_number": "4226", "subject": "фактура в падеж", "received_at": "2026-11-16T09:00:00Z" }""",
     CardKind.SUPPLIER_ADVANCE_LOW: """{ "purchase_contract_id": 7, "contract_number": "П-2026-007", "supplier_name": "Пелет АД", "balance": "42000.00", "needed": "58000.00", "buffer": "5000.00", "shortfall": "21000.00", "trigger": "request_send" }""",
 }
 

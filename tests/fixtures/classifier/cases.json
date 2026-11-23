@@ -1,28 +1,173 @@
 [
-  {"name": "request", "expected": "request", "confidence": 0.96,
-   "reason": "Клиентът заявява камиони с количества и дати.",
-   "input": {"from_address": "office@agro-fermer.bg", "subject": "Заявка за следващата седмица",
-     "body_text": "Здравейте, моля за 3 камиона пшеница - понеделник и сряда, по 25 тона.",
-     "attachments": [{"name": "zayavka.xlsx", "tsv": "Стока\tТона\tДата\nПшеница\t25\t2026-11-23\nПшеница\t25\t2026-11-25"}]}},
-  {"name": "report", "expected": "report", "confidence": 0.94,
-   "reason": "Справка на доставчик с натоварени камиони и тонове.",
-   "input": {"from_address": "sklad@ruse-zerno.bg", "subject": "Справка натоварени 14.11",
-     "body_text": "Приложена е справката за натоварените камиони.",
-     "attachments": [{"name": "spravka.xlsx", "tsv": "Номер\tТона\tДата\nCB1234AB\t24.8\t2026-11-14\nCB5678KT\t25.1\t2026-11-14"}]}},
-  {"name": "cancellation", "expected": "cancellation", "confidence": 0.91,
-   "reason": "Писмото отказва вече заявен курс.",
-   "input": {"from_address": "office@agro-fermer.bg", "subject": "Отказ",
-     "body_text": "Отказваме курса от четвъртък - камионът няма да дойде.", "attachments": []}},
-  {"name": "mi_invoice", "expected": "mi_invoice", "confidence": 0.97,
-   "reason": "Прикачена е фактура от Мега с номер и редове.",
-   "input": {"from_address": "invoices@supplier.bg", "subject": "Фактура 0000123",
-     "body_text": "Моля, вижте приложената фактура.", "attachments": [{"name": "faktura-0000123.pdf"}]}},
-  {"name": "other", "expected": "other", "confidence": 0.88,
-   "reason": "Рекламно писмо без отношение към курсове.",
-   "input": {"from_address": "news@promo.bg", "subject": "Промоция на торове",
-     "body_text": "Само този месец -20% на всички торове!", "attachments": []}},
-  {"name": "low_confidence", "expected": "other", "confidence": 0.4, "model_kind": "request",
-   "reason": "Не е ясно дали е заявка или въпрос.",
-   "input": {"from_address": "x@firma.bg", "subject": "Относно утре",
-     "body_text": "Може ли да се чуем за утре?", "attachments": []}}
+ {
+  "name": "request",
+  "expected": "request",
+  "confidence": 0.96,
+  "reason": "Клиентът заявява камиони с количества и дати.",
+  "input": {
+   "from_address": "office@agro-fermer.bg",
+   "subject": "Заявка за следващата седмица",
+   "body_text": "Здравейте, моля за 3 камиона пшеница - понеделник и сряда, по 25 тона.",
+   "attachments": [
+    {
+     "name": "zayavka.xlsx",
+     "tsv": "Стока\tТона\tДата\nПшеница\t25\t2026-11-23\nПшеница\t25\t2026-11-25"
+    }
+   ]
+  }
+ },
+ {
+  "name": "report",
+  "expected": "report",
+  "confidence": 0.94,
+  "reason": "Справка на доставчик с натоварени камиони и тонове.",
+  "input": {
+   "from_address": "sklad@ruse-zerno.bg",
+   "subject": "Справка натоварени 14.11",
+   "body_text": "Приложена е справката за натоварените камиони.",
+   "attachments": [
+    {
+     "name": "spravka.xlsx",
+     "tsv": "Номер\tТона\tДата\nCB1234AB\t24.8\t2026-11-14\nCB5678KT\t25.1\t2026-11-14"
+    }
+   ]
+  }
+ },
+ {
+  "name": "cancellation",
+  "expected": "cancellation",
+  "confidence": 0.91,
+  "reason": "Писмото отказва вече заявен курс.",
+  "input": {
+   "from_address": "office@agro-fermer.bg",
+   "subject": "Отказ",
+   "body_text": "Отказваме курса от четвъртък - камионът няма да дойде.",
+   "attachments": []
+  }
+ },
+ {
+  "name": "mi_invoice",
+  "expected": "mi_invoice",
+  "confidence": 0.97,
+  "reason": "Прикачена е фактура от Мега с номер и редове.",
+  "input": {
+   "from_address": "invoices@mega-soft.bg",
+   "subject": "Фактура 0000123 към Агро Фермер ООД",
+   "body_text": "Изходяща фактура от Мега към клиента Агро Фермер ООД, приложена в PDF.",
+   "attachments": [
+    {
+     "name": "faktura-0000123.pdf"
+    }
+   ]
+  }
+ },
+ {
+  "name": "other",
+  "expected": "other",
+  "confidence": 0.88,
+  "reason": "Рекламно писмо без отношение към курсове.",
+  "input": {
+   "from_address": "news@promo.bg",
+   "subject": "Промоция на торове",
+   "body_text": "Само този месец -20% на всички торове!",
+   "attachments": []
+  }
+ },
+ {
+  "name": "low_confidence",
+  "expected": "other",
+  "confidence": 0.4,
+  "model_kind": "request",
+  "reason": "Не е ясно дали е заявка или въпрос.",
+  "input": {
+   "from_address": "x@firma.bg",
+   "subject": "Относно утре",
+   "body_text": "Може ли да се чуем за утре?",
+   "attachments": []
+  }
+ },
+ {
+  "name": "supplier_doc_proforma",
+  "expected": "supplier_doc",
+  "confidence": 0.93,
+  "reason": "Проформа от доставчик за 300 т урея.",
+  "doc_kind": "proforma",
+  "input": {
+   "from_address": "sales@supplier.bg",
+   "subject": "Проформа за 300 т урея",
+   "body_text": "Здравейте, прилагам проформа за 300 т урея по 550 EUR/т.",
+   "attachments": [
+    {
+     "name": "proforma-4411.pdf"
+    }
+   ]
+  }
+ },
+ {
+  "name": "supplier_doc_invoice",
+  "expected": "supplier_doc",
+  "confidence": 0.92,
+  "reason": "Данъчна фактура от доставчик.",
+  "doc_kind": "invoice",
+  "input": {
+   "from_address": "acc@supplier.bg",
+   "subject": "Фактура № 4226",
+   "body_text": "Изпращаме фактура за извършената доставка.",
+   "attachments": [
+    {
+     "name": "f4226.pdf"
+    }
+   ]
+  }
+ },
+ {
+  "name": "inquiry",
+  "expected": "inquiry",
+  "confidence": 0.9,
+  "reason": "Запитване за цена без договор.",
+  "input": {
+   "from_address": "office@new-client.bg",
+   "subject": "Запитване за урея",
+   "body_text": "Добър ден, каква е цената за 300 т урея с доставка до Русе?",
+   "attachments": []
+  }
+ },
+ {
+  "name": "payment_question",
+  "expected": "payment_question",
+  "confidence": 0.91,
+  "reason": "Питат дали фактурата е платена.",
+  "input": {
+   "from_address": "acc@amar-sped.bg",
+   "subject": "фактура в падеж",
+   "body_text": "Моля, проверете дали фактура № 4226 е платена. Падежът ѝ е изтекъл.",
+   "attachments": []
+  }
+ },
+ {
+  "name": "reply_confirmed",
+  "expected": "reply",
+  "confidence": 0.95,
+  "reason": "Кратко потвърждение на наше писмо.",
+  "reply_status": "confirmed",
+  "input": {
+   "from_address": "dispatch@oliva.bg",
+   "subject": "RE: Заявка АИТ-000123",
+   "body_text": "Потвърждавам, благодаря.",
+   "attachments": []
+  }
+ },
+ {
+  "name": "reply_needs_attention",
+  "expected": "reply",
+  "confidence": 0.9,
+  "reason": "Отговор с промяна на количеството.",
+  "reply_status": "needs_attention",
+  "input": {
+   "from_address": "dispatch@oliva.bg",
+   "subject": "RE: Заявка АИТ-000124",
+   "body_text": "Не можем в четвъртък, ще е възможно само 40 т в петък.",
+   "attachments": []
+  }
+ }
 ]

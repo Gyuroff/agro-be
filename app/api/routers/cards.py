@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body
 from app.api.deps import CurrentPrincipal, DbSession
 from app.models.cards import CardStatus
 from app.schemas.dashboard import CardActionResponse, DashboardDTO
+from app.services import payment_questions as _payment_questions  # noqa: F401  (регистрира действията)
 from app.services.cards import CardService
 from app.services.dashboard import build_dashboard, card_dto
 

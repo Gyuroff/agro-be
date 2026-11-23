@@ -28,6 +28,8 @@ def main() -> None:
             "kind": case.get("model_kind", case["expected"]),
             "confidence": case["confidence"],
             "reason": case["reason"],
+            "doc_kind": case.get("doc_kind"),
+            "reply_status": case.get("reply_status"),
         }
         path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

@@ -21,7 +21,11 @@ def main() -> None:
             if c.get("pending_spec"):
                 print(f"-- {c['name']:28} чака спецификацията; модел={out.kind.value} {out.confidence:.2f}")
                 continue
-            hit = d.kind.value == c["expected"]
+            hit = (
+                d.kind.value == c["expected"]
+                and (d.doc_kind.value if d.doc_kind else None) == c.get("doc_kind")
+                and (d.reply_status.value if d.reply_status else None) == c.get("reply_status")
+            )
             ok, total = ok + hit, total + 1
             flag = "" if c.get("label_verified", True) else " (етикет непотвърден)"
             mark = "OK " if hit else "ERR"

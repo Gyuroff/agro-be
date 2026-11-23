@@ -1,0 +1,7 @@
+{
+  "kind": "cancellation",
+  "confidence": 0.91,
+  "reason": "Писмото отказва вече заявен курс.",
+  "doc_kind": null,
+  "reply_status": null
+}

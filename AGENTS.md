@@ -33,4 +33,5 @@ Python бекенд на Agro ERP: FastAPI, SQLAlchemy, Alembic, SQLAdmin, Celer
 - Миграции: една на задача, autogenerate + ръчен преглед. `alembic upgrade head` и `alembic downgrade -1` трябва да минават.
 - Преди затваряне: `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest -q`, всичко зелено.
 - Затваряй с доказателство: файлове, тестове, брой минали тестове.
+- Всяка задача завършва с къмит и пуш (`git push`) — след зелената проверка и `bd close`. Съобщението на къмита носи id на задачата, напр. `(agro-xyz)`. Недовършена работа не остава некомитната между сесиите.
 - Тайни само в `.env`, никога в git.

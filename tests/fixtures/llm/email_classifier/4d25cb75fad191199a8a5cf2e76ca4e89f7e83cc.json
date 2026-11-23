@@ -1,0 +1,7 @@
+{
+  "kind": "payment_question",
+  "confidence": 0.91,
+  "reason": "Питат дали фактурата е платена.",
+  "doc_kind": null,
+  "reply_status": null
+}

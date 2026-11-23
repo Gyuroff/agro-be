@@ -255,3 +255,11 @@
 
 ## agro-e42 — готово
 - `InvoiceDuePayload.invoice_version` (app/schemas/cards.py), примерът в tests/unit/test_card_payloads.py е по api.md §2. `hide` за `mailbox_alarm` вече беше в `HIDE_KINDS`; добавен тест. Карти `invoice_due` още никой не създава (идва с agro-66f.1) — там трябва да се подава версията. Бутонът `issue` с `invoice_version` е на agro-66f.2.
+
+## agro-iat (нови видове писмо) — готово, затворена
+- `make check` зелено (474 теста). Миграция `0016` (CHECK `kind` на `action_cards` и `push_notifications` + `payment_question`); колоните `kind/doc_kind/reply_status/replies_to_outbound_id` и `payment_reply` бяха от `l2v.6`.
+- `ClassifierOutput` (+`doc_kind`, `reply_status`; EmailKind/DocKind/ReplyStatus са от `app/models/mail.py`), `decide()` изхвърля чуждите полета, `_validate` връща грешка при липсващо `doc_kind`/`reply_status` (→ 1 повторение). `email_classifier@3`; `inbound_mail._classify` записва двете полета.
+- `app/services/payment_questions.py`: обработчик → карта `payment_question` (`invoice_number` с regex от темата/тялото; няма → null), действия `reply_paid`/`reply_will_pay`/`ignore`. Отговорът е `payment_reply` в нишката, `undo_token` = `make_undo_token` (същият `RequestService.undo`; след „Отмени“ се ползва същото писмо). `attachment_ids` ≠ [] → 400 (не е направено). Регистрира се при импорт от `inbound_mail` (worker) и от `routers/cards.py` (API).
+- `reply` без карта: `_handle_reply` → `processed`; етикетът се смята при четене (agro-nfi).
+- `inquiry` и `supplier_doc` още нямат обработчик (→ `needs_action` + лог): `one_shot_deals` няма модел; `to_one_shot`/`confirm_link` чакат.
+- Eval с реален Haiku (`scripts/eval_classifier.py`, вече проверява и `doc_kind`/`reply_status`): 29/30, 30/30, 29/30 в три пуска. Единственото колебание е `real_11` (две „Проф ф-ра“, GDPR бележка; видът е верен, увереност 0.60–0.70 → под прага става `other`). Критерият „≥95%“ е изпълнен (29/30 = 96,7% във всеки пуск); `real_11` е единственото колебание; `real_12` е вече `reply`/confirmed. Синтетичният `mi_invoice` е променен да е ясно от Мега (иначе е неразличим от `supplier_doc`).
