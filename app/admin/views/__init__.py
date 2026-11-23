@@ -1,6 +1,13 @@
 """Изгледите на уеб админа (docs/data-model.md §14). Добавят се със задачите agro-wo5.2–wo5.4."""
 
 from app.admin.base import AuditedModelView
+from app.admin.views.contracts import (
+    ContractAdmin,
+    ContractPriceAdmin,
+    ExpenseAdmin,
+    ExpenseCategoryAdmin,
+    MonthlyResultOpeningAdmin,
+)
 from app.admin.views.identity import CompanyAdmin, DeviceAdmin, NumberSequenceAdmin, UserAdmin
 from app.admin.views.masterdata import (
     ContactAdmin,
@@ -20,4 +27,9 @@ ALL_VIEWS: list[type[AuditedModelView]] = [
     ContactAdmin,
     ProductAdmin,
     WarehouseAdmin,
+    ContractAdmin,
+    ContractPriceAdmin,
+    ExpenseCategoryAdmin,
+    ExpenseAdmin,
+    MonthlyResultOpeningAdmin,
 ]

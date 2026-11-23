@@ -3,6 +3,7 @@
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -17,9 +18,12 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import AuditMixin, Base, PricePerT, Tonnes, enum_check
+
+if TYPE_CHECKING:
+    from app.models.masterdata import Contact, Counterparty, Product, Warehouse
 
 
 class ContractSide(StrEnum):
@@ -125,6 +129,14 @@ class Contract(AuditMixin, Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    counterparty: Mapped["Counterparty"] = relationship("Counterparty", foreign_keys=[counterparty_id])
+    product: Mapped["Product"] = relationship("Product", foreign_keys=[product_id])
+    warehouse: Mapped["Warehouse | None"] = relationship("Warehouse", foreign_keys=[warehouse_id])
+    supply_contract: Mapped["Contract | None"] = relationship(
+        "Contract", foreign_keys=[supply_contract_id], remote_side=[id]
+    )
+    order_contact: Mapped["Contact | None"] = relationship("Contact", foreign_keys=[order_contact_id])
+
 
 class ContractPrice(AuditMixin, Base):
     """Цена по договор с история: нова цена = нов ред, старите не се пипат."""
@@ -141,3 +153,5 @@ class ContractPrice(AuditMixin, Base):
     packaging: Mapped[str] = mapped_column(Text, nullable=False, default="bulk", server_default="bulk")
     valid_from: Mapped[date] = mapped_column(Date, nullable=False)
     price_per_t: Mapped[Decimal] = mapped_column(PricePerT, nullable=False)
+
+    contract: Mapped["Contract"] = relationship("Contract", foreign_keys=[contract_id])

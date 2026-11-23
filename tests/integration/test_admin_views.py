@@ -242,3 +242,110 @@ def test_number_sequence_cannot_drop_below_last_issued(
     assert web.post(url, data={**data, "next_number": "101"}).status_code in (302, 303)
     with Session(db_engine) as s:
         assert s.get(NumberSequence, seq_id).next_number == 101  # pyright: ignore[reportOptionalMemberAccess]
+
+
+# --- agro-wo5.3: договори, цени, разходи ------------------------------------------------------------
+
+
+def _seed_commit(engine: Engine, *objects: object) -> None:
+    with Session(engine, expire_on_commit=False) as s:
+        actor_id = s.scalar(select(Actor.id).where(Actor.code == "system:seed"))
+        assert actor_id is not None
+        with audit_context(AuditContext(actor_id, AuditSource.SEED)):
+            s.add_all(objects)
+            s.commit()
+
+
+def _cleanup(engine: Engine, sql: list[str]) -> None:
+    with engine.begin() as conn:
+        for stmt in sql:
+            conn.execute(text(stmt))
+
+
+def test_sale_contract_with_other_product_supply_is_rejected(db_engine: Engine, web: TestClient) -> None:
+    from datetime import date
+
+    from app.models.contracts import Contract
+    from app.models.masterdata import Product, Warehouse
+
+    uid = _uid()
+    client = Counterparty(name=f"К {uid}", legal_name=f"К {uid}", eik=_digits(), country_code="BG")
+    supplier = Counterparty(name=f"Д {uid}", legal_name=f"Д {uid}", eik=_digits(), country_code="BG")
+    p1, p2 = Product(name=f"П1 {uid}", unit="t"), Product(name=f"П2 {uid}", unit="t")
+    _seed_commit(db_engine, client, supplier, p1, p2)
+    wh = Warehouse(counterparty_id=supplier.id, name=f"С {uid}")
+    _seed_commit(db_engine, wh)
+    purchase = Contract(
+        number=f"П-{uid}",
+        side="purchase",
+        counterparty_id=supplier.id,
+        product_id=p1.id,
+        warehouse_id=wh.id,
+        valid_from=date(2026, 1, 1),
+    )
+    _seed_commit(db_engine, purchase)
+    try:
+        base = {
+            "number": f"Р-{uid}",
+            "side": "sale",
+            "counterparty": str(client.id),
+            "valid_from": "2026-01-01",
+            "status": "active",
+            "opening_drawn_qty_t": "0",
+            "planned_truck_qty_t": "25.200",
+            "supply_contract": str(purchase.id),
+        }
+        bad = web.post("/admin/contract/create", data={**base, "product": str(p2.id)})
+        assert bad.status_code == 400
+        assert "същата стока" in bad.text
+        ok = web.post("/admin/contract/create", data={**base, "product": str(p1.id)})
+        assert ok.status_code in (302, 303), ok.text
+    finally:
+        _cleanup(
+            db_engine,
+            [
+                f"DELETE FROM contracts WHERE number = 'Р-{uid}'",
+                f"DELETE FROM contracts WHERE number = 'П-{uid}'",
+                f"DELETE FROM warehouses WHERE name = 'С {uid}'",
+                f"DELETE FROM products WHERE name IN ('П1 {uid}', 'П2 {uid}')",
+                f"DELETE FROM counterparties WHERE name IN ('К {uid}', 'Д {uid}')",
+            ],
+        )
+
+
+def test_contract_price_cannot_be_edited(web: TestClient) -> None:
+    view = next(v for v in ALL_VIEWS if v.identity == "contract-price")  # pyright: ignore[reportAttributeAccessIssue]
+    assert view.can_edit is False
+    assert view.can_create is True
+    assert web.get("/admin/contract-price/edit/1").status_code in (302, 303, 400, 403, 404)
+
+
+def test_expense_delete_is_audited(db_engine: Engine, web: TestClient) -> None:
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models.result import Expense, ExpenseCategory
+
+    uid = _uid()
+    category = ExpenseCategory(name=f"Кат {uid}")
+    _seed_commit(db_engine, category)
+    expense = Expense(
+        category_id=category.id, kind="monthly", amount=Decimal("100.00"), start_month=date(2026, 11, 1)
+    )
+    _seed_commit(db_engine, expense)
+    try:
+        response = web.request("DELETE", f"/admin/expense/delete?pks={expense.id}")
+        assert response.status_code == 200, response.text
+        with Session(db_engine) as s:
+            assert s.get(Expense, expense.id) is None
+            audit = s.scalar(
+                select(AuditLog).where(
+                    AuditLog.entity_type == "expenses",
+                    AuditLog.entity_id == expense.id,
+                    AuditLog.action == "delete",
+                )
+            )
+            assert audit is not None
+            assert audit.source == "admin"
+    finally:
+        _cleanup(db_engine, [f"DELETE FROM expense_categories WHERE name = 'Кат {uid}'"])

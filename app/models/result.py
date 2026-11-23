@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, Text, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import AuditMixin, Base, Money, enum_check
 
@@ -46,6 +46,8 @@ class Expense(AuditMixin, Base):
     start_month: Mapped[date] = mapped_column(Date, nullable=False)
     end_month: Mapped[date | None] = mapped_column(Date, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    category: Mapped["ExpenseCategory"] = relationship("ExpenseCategory", foreign_keys=[category_id])
 
 
 class MonthlyResultOpening(AuditMixin, Base):
