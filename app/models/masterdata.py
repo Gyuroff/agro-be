@@ -16,7 +16,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import AuditMixin, Base, Pct, enum_check
 from app.domain.emails import is_public_domain, normalize_domain, normalize_email
@@ -128,6 +128,7 @@ class CounterpartyDomain(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     counterparty_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
+    counterparty: Mapped["Counterparty"] = relationship("Counterparty", foreign_keys=[counterparty_id])
     domain: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
@@ -156,6 +157,7 @@ class Contact(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     counterparty_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
+    counterparty: Mapped["Counterparty"] = relationship("Counterparty", foreign_keys=[counterparty_id])
     full_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     email: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -215,6 +217,7 @@ class Warehouse(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     counterparty_id: Mapped[int] = mapped_column(ForeignKey("counterparties.id"), nullable=False)
+    counterparty: Mapped["Counterparty"] = relationship("Counterparty", foreign_keys=[counterparty_id])
     name: Mapped[str] = mapped_column(Text, nullable=False)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     packagings: Mapped[list[str]] = mapped_column(

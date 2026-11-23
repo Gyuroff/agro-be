@@ -268,3 +268,11 @@
 - Миграция `0017_rename_mi_to_mega.py` (нагоре/надолу/`alembic check` минават): колони `mega_code`, `mega_invoice_grace_working_days`, constraint-и, CHECK за `inbound_emails.kind`, `agent_runs.agent`, `action_cards.resolution`, `stored_objects.kind` + UPDATE на съществуващите редове, `actors.code='agent:mega_invoice_parser'`, `dedupe_key mi_missing:` → `mega_missing:`.
 - Env: `APP_MEGA_TEST_EXPORT_DIR` / `APP_MEGA_PROD_EXPORT_DIR`. API: `mega_number`, `rows[].mega`, resolution `mega_correct`. Деплой в един ден с agro-app (Flutter).
 - Stub fixtures на класификатора са прегенерирани (sha1 зависи от промпта). Eval: 30/30.
+
+## agro-wo5.2 (админ изгледи 1) — готово
+- `app/admin/views/identity.py` (потребители, устройства, фирма, номерация), `masterdata.py` (контрагенти, домейни, контакти, стоки, складове), `ALL_VIEWS`; тестове `tests/integration/test_admin_views.py` (9).
+- Добавени `relationship` към `Device.user` и `counterparty` на домейн/контакт/склад (само ORM, без миграция) — SQLAdmin иска релации за падащи менюта и колони „Контрагент“/„Потребител“.
+- `AuditedModelView.column_details_list="__all__"` връща и `password_hash`/`push_token` — изгледите за потребители и устройства имат изричен списък без тях. Нови изгледи със секрети правят същото.
+- Устройства: `can_edit=False` (спецификацията казва „✓ само revoked_at чрез действие“; действието „Отнеми“ е единствената промяна). Контрагент `erp` без договор с цена се отхвърля само при РЕДАКЦИЯ (нов контрагент няма как да има договор).
+- ЕИК (9/13 цифри) и ДДС (`BG123…`) се валидират в `on_model_change`; формат на ДДС е моя интерпретация.
+- Тестовете комитват за реално (админът ползва свои връзки); фикстурата `web` чисти устройства/токени, иначе чупят `test_auth` (избира всички `RefreshToken`).
