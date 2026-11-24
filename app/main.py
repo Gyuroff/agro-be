@@ -21,6 +21,7 @@ from app.api.routers import (
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging
+from app.services import push as push_service
 
 
 def create_app(admin_views: Iterable[type[AuditedModelView]] = ALL_VIEWS) -> FastAPI:
@@ -31,6 +32,7 @@ def create_app(admin_views: Iterable[type[AuditedModelView]] = ALL_VIEWS) -> Fas
     settings = get_settings()  # гърми рано, ако липсва задължителна настройка
     configure_logging("DEBUG" if settings.env == "dev" else "INFO")
 
+    push_service.register_hooks()
     app = FastAPI(title="Agro ERP", version="0.1.0")
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)

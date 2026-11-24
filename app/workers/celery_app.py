@@ -14,7 +14,7 @@ def create_celery() -> Celery:
         "agro",
         broker=settings.redis_url,
         backend=settings.redis_url,
-        include=["app.workers.tasks.mail", "app.workers.tasks.ops"],
+        include=["app.workers.tasks.mail", "app.workers.tasks.ops", "app.workers.tasks.push"],
     )
     app.conf.update(
         task_acks_late=True,
