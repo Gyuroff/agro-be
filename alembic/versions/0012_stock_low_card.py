@@ -48,6 +48,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Старият CHECK не познава `stock_low`: картите (и пушовете към тях) се махат, иначе връщането гърми.
+    op.execute(
+        "DELETE FROM push_notifications WHERE kind = 'stock_low' "
+        "OR action_card_id IN (SELECT id FROM action_cards WHERE kind = 'stock_low')"
+    )
+    op.execute("DELETE FROM action_cards WHERE kind = 'stock_low'")
     for table in ("action_cards", "push_notifications"):
         op.drop_constraint("kind", table, type_="check")
     op.create_check_constraint("kind", "action_cards", _in(_BASE))

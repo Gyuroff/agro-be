@@ -49,6 +49,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Старият CHECK не познава вида: картите „въпрос за плащане“ (и пушовете към тях) се махат,
+    # иначе връщането гърми върху база с такива редове.
+    op.execute(
+        "DELETE FROM push_notifications WHERE kind = 'payment_question' "
+        "OR action_card_id IN (SELECT id FROM action_cards WHERE kind = 'payment_question')"
+    )
+    op.execute("DELETE FROM action_cards WHERE kind = 'payment_question'")
     for table in ("action_cards", "push_notifications"):
         op.drop_constraint("kind", table, type_="check")
     op.create_check_constraint("kind", "action_cards", _in(_BASE))
