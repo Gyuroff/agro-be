@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.views import ALL_VIEWS
 from app.core.audit_context import AuditContext, AuditSource, audit_context
+from app.db.session import get_sessionmaker
 from app.main import create_app
 from app.models.audit import AuditLog
 from app.models.company import NumberSequence
@@ -318,6 +319,40 @@ def test_contract_price_cannot_be_edited(web: TestClient) -> None:
     assert view.can_edit is False
     assert view.can_create is True
     assert web.get("/admin/contract-price/edit/1").status_code in (302, 303, 400, 403, 404)
+
+
+def test_warehouse_packagings_multiselect_in_admin(db_engine: Engine, web: TestClient) -> None:
+    from app.models.masterdata import Warehouse
+
+    uid = _uid()
+    supplier = Counterparty(name=f"Д {uid}", legal_name=f"Д {uid}", eik=_digits(), country_code="BG")
+    _seed_commit(db_engine, supplier)
+    base = {"counterparty": str(supplier.id), "name": f"С {uid}"}
+    try:
+        none = web.post("/admin/warehouse/create", data=base)
+        assert none.status_code == 400  # празен избор не е позволен
+        bad = web.post("/admin/warehouse/create", data={**base, "packagings": "pallet"})
+        assert bad.status_code == 400
+        ok = web.post("/admin/warehouse/create", data={**base, "packagings": "bulk"})
+        assert ok.status_code in (302, 303), ok.text
+        with get_sessionmaker()() as s:
+            wh = s.scalars(select(Warehouse).where(Warehouse.name == f"С {uid}")).one()
+            assert wh.packagings == ["bulk"]
+    finally:
+        _cleanup(
+            db_engine,
+            [
+                f"DELETE FROM warehouses WHERE name = 'С {uid}'",
+                f"DELETE FROM counterparties WHERE name = 'Д {uid}'",
+            ],
+        )
+
+
+def test_contract_price_form_has_packaging_choice(web: TestClient) -> None:
+    page = web.get("/admin/contract-price/create")
+    assert page.status_code == 200
+    assert 'name="packaging"' in page.text
+    assert "Насипни" in page.text and "Опаковани" in page.text
 
 
 def test_expense_delete_is_audited(db_engine: Engine, web: TestClient) -> None:

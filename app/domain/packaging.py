@@ -13,6 +13,8 @@ class Packaging(StrEnum):
     BAGGED = "bagged"
 
 
+PACKAGING_LABELS = {Packaging.BULK.value: "Насипни", Packaging.BAGGED.value: "Опаковани"}
+
 _BAGGED = re.compile(r"бег|\bбб\b|пакет|опаков|bag", re.IGNORECASE)
 _BULK = re.compile(r"насип|bulk|\bна\s*рамп|цистерн", re.IGNORECASE)
 

@@ -7,11 +7,13 @@ import anyio
 from sqladmin.filters import BooleanFilter, StaticValuesFilter
 from sqlalchemy import func, select
 from starlette.requests import Request
-from wtforms import SelectField
+from wtforms import SelectField, SelectMultipleField
+from wtforms.validators import DataRequired
 
 from app.adapters.client_files import adapter_choices
 from app.admin.base import AuditedModelView
 from app.db.session import get_sessionmaker
+from app.domain.packaging import PACKAGING_LABELS
 from app.models.contracts import Contract, ContractPrice
 from app.models.masterdata import (
     Contact,
@@ -195,7 +197,17 @@ class WarehouseAdmin(AuditedModelView, model=Warehouse):
     category = "Контрагенти и стоки"
     icon = "fa-solid fa-warehouse"
 
-    column_list = [Warehouse.counterparty, Warehouse.name, Warehouse.is_active]
+    column_list = [Warehouse.counterparty, Warehouse.name, Warehouse.packagings, Warehouse.is_active]
+    form_overrides = {"packagings": SelectMultipleField}
+    form_args = {
+        "packagings": {
+            "choices": list(PACKAGING_LABELS.items()),
+            "coerce": str,
+            "validate_choice": True,
+            "validators": [DataRequired(message="Изберете поне една разфасовка.")],
+            "default": ["bulk", "bagged"],
+        }
+    }
     column_searchable_list = [Warehouse.name]
     column_labels = {
         "counterparty": "Контрагент",

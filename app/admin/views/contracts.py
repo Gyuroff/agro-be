@@ -6,10 +6,12 @@ from typing import Any
 import anyio
 from sqladmin.filters import StaticValuesFilter
 from starlette.requests import Request
+from wtforms import SelectField
 
 from app.admin.base import AuditedModelView
 from app.core.errors import DomainError
 from app.db.session import get_sessionmaker
+from app.domain.packaging import PACKAGING_LABELS
 from app.models.contracts import Contract, ContractPrice
 from app.models.result import Expense, ExpenseCategory, MonthlyResultOpening
 from app.services.contracts import validate_contract
@@ -93,8 +95,20 @@ class ContractPriceAdmin(AuditedModelView, model=ContractPrice):
     icon = "fa-solid fa-tag"
 
     can_edit = False  # грешна цена се поправя с нов ред — историята е важна за маржа
-    column_list = [ContractPrice.contract, ContractPrice.valid_from, ContractPrice.price_per_t]
+    column_list = [
+        ContractPrice.contract,
+        ContractPrice.packaging,
+        ContractPrice.valid_from,
+        ContractPrice.price_per_t,
+    ]
     column_searchable_list = ["contract.number"]
+    form_overrides = {"packaging": SelectField}
+    form_args = {
+        "packaging": {"choices": list(PACKAGING_LABELS.items()), "coerce": str, "validate_choice": True}
+    }
+    column_formatters = {
+        ContractPrice.packaging: lambda m, _a: PACKAGING_LABELS.get(m.packaging, m.packaging)
+    }
     column_labels = {
         "contract": "Договор",
         "packaging": "Разфасовка",
