@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.core.audit_context import AuditContext
 from app.core.config import get_settings
+from app.core.errors import DomainError
 from app.invoicing import numbers
 from app.invoicing.pdf import render_invoice_html, render_invoice_pdf
 from app.main import create_app
@@ -94,6 +95,29 @@ def test_issue_takes_next_number_from_mega(
     assert len(events) == len(s.trips) and "0000001525" in events[0].text
     db_session.commit()
     assert delivered == [inv.id]  # доставката се пуска едва след commit
+
+
+def test_issue_is_audited_and_forbidden_issue_is_not(
+    s: Setup, db_session: Session, mega: FakeMega, delivered: list[int]
+) -> None:
+    from app.models.audit import AuditLog
+
+    def rows() -> list[AuditLog]:
+        db_session.flush()
+        return list(
+            db_session.scalars(
+                select(AuditLog).where(AuditLog.entity_type == "invoices", AuditLog.entity_id == s.invoice_id)
+            )
+        )
+
+    InvoiceService.issue(db_session, s.invoice_id, s.invoice.version)
+    issued = [r for r in rows() if r.changes.get("status") == ["draft", "issued"]]
+    assert len(issued) == 1 and issued[0].actor_id is not None
+    before = len(rows())
+    with pytest.raises(DomainError) as err:
+        InvoiceService.issue(db_session, s.invoice_id, s.invoice.version)
+    assert err.value.http_status == 409
+    assert len(rows()) == before
 
 
 def test_rollback_does_not_schedule_delivery(

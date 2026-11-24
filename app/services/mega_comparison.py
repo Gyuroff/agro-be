@@ -399,6 +399,26 @@ def mega_missing_check(session: Session, today: date) -> list[int]:
 # --- екран 16 и разрешаване --------------------------------------------------------------------------
 
 
+def shadow_readiness(session: Session, counterparty_id: int) -> bool:
+    """„Готов за erp“ — само индикация (testing.md I10).
+
+    Последните `shadow_cycles_required` цикъла със сравнение са `match` с `counts_for_readiness`;
+    цикъл без сравнение още не се брои.
+    """
+    required = session.scalars(select(CompanySettings.shadow_cycles_required)).one()
+    rows = session.execute(
+        select(InvoiceComparison.invoice_id, InvoiceComparison.result, InvoiceComparison.counts_for_readiness)
+        .join(Invoice, Invoice.id == InvoiceComparison.invoice_id)
+        .where(Invoice.counterparty_id == counterparty_id, Invoice.status != InvoiceStatus.VOID.value)
+        .order_by(Invoice.billing_date.desc(), InvoiceComparison.id.desc())
+    ).all()
+    latest: dict[int, tuple[str, bool]] = {}
+    for invoice_id, result, counts in rows:
+        latest.setdefault(invoice_id, (result, counts))  # най-новото сравнение на цикъла
+    cycles = list(latest.values())[:required]  # dict пази реда: най-новите цикли първи
+    return len(cycles) == required and all(r == ComparisonResult.MATCH.value and c for r, c in cycles)
+
+
 def get_comparison(session: Session, comparison_id: int, *, lock: bool = False) -> InvoiceComparison:
     stmt = select(InvoiceComparison).where(InvoiceComparison.id == comparison_id)
     comparison = session.scalar(stmt.with_for_update() if lock else stmt)
