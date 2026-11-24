@@ -7,6 +7,7 @@ from app.models.cards import CardStatus
 from app.schemas.dashboard import CardActionResponse, DashboardDTO
 from app.schemas.proposals import ProposalDTO
 from app.services import payment_questions as _payment_questions  # noqa: F401  (регистрира действията)
+from app.services import unknown_sender as _unknown_sender  # noqa: F401  (регистрира действията)
 from app.services.cards import CardService
 from app.services.dashboard import build_dashboard, card_dto
 
