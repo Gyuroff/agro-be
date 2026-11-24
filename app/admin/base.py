@@ -20,3 +20,11 @@ class AuditedModelView(ModelView):
     can_delete = False
     page_size = 50
     column_default_sort: Any = [("id", True)]
+
+
+class ReadOnlyModelView(AuditedModelView):
+    """Редове „само за четене“ (§14): без създаване, редакция и изтриване."""
+
+    can_create = False
+    can_edit = False
+    can_delete = False

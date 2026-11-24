@@ -1,4 +1,4 @@
-"""Изгледите на уеб админа (docs/data-model.md §14). Добавят се със задачите agro-wo5.2–wo5.4."""
+"""Изгледите на уеб админа (docs/data-model.md §14). Предложенията — agro-msf.5."""
 
 from app.admin.base import AuditedModelView
 from app.admin.views.contracts import (
@@ -16,6 +16,17 @@ from app.admin.views.masterdata import (
     ProductAdmin,
     WarehouseAdmin,
 )
+from app.admin.views.readonly import (
+    ActionCardAdmin,
+    AgentRunAdmin,
+    AuditLogAdmin,
+    InboundEmailAdmin,
+    InvoiceAdmin,
+    InvoiceComparisonAdmin,
+    MailboxPollAdmin,
+    OutboundEmailAdmin,
+    TripAdmin,
+)
 
 ALL_VIEWS: list[type[AuditedModelView]] = [
     UserAdmin,
@@ -32,4 +43,13 @@ ALL_VIEWS: list[type[AuditedModelView]] = [
     ExpenseCategoryAdmin,
     ExpenseAdmin,
     MonthlyResultOpeningAdmin,
+    AuditLogAdmin,
+    TripAdmin,
+    InboundEmailAdmin,
+    OutboundEmailAdmin,
+    ActionCardAdmin,
+    InvoiceAdmin,
+    InvoiceComparisonAdmin,
+    AgentRunAdmin,
+    MailboxPollAdmin,
 ]

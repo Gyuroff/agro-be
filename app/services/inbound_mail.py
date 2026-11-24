@@ -169,6 +169,27 @@ def process(session: Session, email_id: int) -> InboundStatus | None:
     return status
 
 
+REPROCESSABLE = (InboundStatus.NEW, InboundStatus.FAILED, InboundStatus.NEEDS_ACTION)
+
+
+def reset_for_reprocess(session: Session, email_ids: list[int]) -> list[int]:
+    """Връща писмата със status new/failed/needs_action в `new` (чисти error/processed_at).
+
+    Връща id-тата, които трябва да се пуснат в `mail.process_email` СЛЕД commit; другите статуси се пропускат.
+    """
+    allowed = [s.value for s in REPROCESSABLE]
+    ready: list[int] = []
+    for email in session.scalars(
+        select(InboundEmail).where(InboundEmail.id.in_(email_ids), InboundEmail.status.in_(allowed))
+    ):
+        email.status = InboundStatus.NEW.value
+        email.error = None
+        email.processed_at = None
+        ready.append(email.id)
+    session.flush()
+    return ready
+
+
 def _run(session: Session, email: InboundEmail) -> InboundStatus:
     if not email.auth_ok:
         _unknown_sender_card(session, email, UNVERIFIED_REASON)
