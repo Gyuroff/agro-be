@@ -177,7 +177,7 @@ class RequestService:
         rows = session.execute(
             select(OutboundEmail.id, OutboundEmail.status).where(OutboundEmail.id.in_(ids))
         )
-        statuses: dict[int, str] = dict(rows.tuples().all())
+        statuses: dict[int, str] = dict(rows.all())  # type: ignore[arg-type]
         return {
             line.id
             for line in lines
