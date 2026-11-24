@@ -6,6 +6,7 @@ from app.api.deps import CurrentPrincipal, DbSession
 from app.models.cards import CardStatus
 from app.schemas.dashboard import CardActionResponse, DashboardDTO
 from app.schemas.proposals import ProposalDTO
+from app.services import cancellations as _cancellations  # noqa: F401  (регистрира действията)
 from app.services import invoice_service as _invoice_service  # noqa: F401  (регистрира действията)
 from app.services import payment_questions as _payment_questions  # noqa: F401  (регистрира действията)
 from app.services import unknown_sender as _unknown_sender  # noqa: F401  (регистрира действията)
