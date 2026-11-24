@@ -8,12 +8,13 @@ from app.models.cards import ActionCard, CardStatus
 from app.models.mail import MailboxPoll, PollStatus
 from app.models.trips import Trip, TripStatus
 from app.schemas.dashboard import CardDTO, DashboardDTO, TripsTodayDTO
+from app.services.reply_label import reply_label
 from app.services.trip_views import trip_list_items
 
 TODAY_ITEMS = 6
 
 
-def card_dto(card: ActionCard) -> CardDTO:
+def card_dto(session: Session, card: ActionCard) -> CardDTO:
     return CardDTO(
         id=card.id,
         kind=card.kind,
@@ -22,6 +23,7 @@ def card_dto(card: ActionCard) -> CardDTO:
         created_at=card.created_at,
         call_phone=card.call_phone,
         payload=card.payload,
+        reply=reply_label(session, card.outbound_email_id),
     )
 
 
@@ -44,7 +46,7 @@ def build_dashboard(session: Session) -> DashboardDTO:
     return DashboardDTO(
         today=today,
         last_mail_check_at=last_ok,
-        cards=[card_dto(c) for c in cards],
+        cards=[card_dto(session, c) for c in cards],
         trips_today=TripsTodayDTO(
             count=count, planned_qty_t=planned, items=trip_list_items(session, trips, "long")
         ),

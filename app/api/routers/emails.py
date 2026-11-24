@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentPrincipal, DbSession
 from app.schemas.emails import EmailDTO
-from app.services.email_views import get_attachment, get_email
+from app.services.email_views import get_attachment, get_email, get_outbound_email
 
 router = APIRouter(tags=["emails"])
 
@@ -11,6 +11,12 @@ router = APIRouter(tags=["emails"])
 @router.get("/emails/{email_id}", response_model=EmailDTO)
 def email_get(email_id: int, _: CurrentPrincipal, session: DbSession) -> EmailDTO:
     return get_email(session, email_id)
+
+
+@router.get("/outbound-emails/{email_id}", response_model=EmailDTO)
+def outbound_email_get(email_id: int, _: CurrentPrincipal, session: DbSession) -> EmailDTO:
+    """Изходящо писмо с етикет „отговор“ (отделен маршрут от `/emails/{id}`: id-тата се застъпват)."""
+    return get_outbound_email(session, email_id)
 
 
 @router.get("/attachments/{attachment_id}")

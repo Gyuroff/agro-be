@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError
-from app.models.mail import EmailAttachment, InboundEmail, MatchMethod
+from app.models.company import CompanySettings
+from app.models.mail import EmailAttachment, InboundEmail, MatchMethod, OutboundEmail
 from app.models.masterdata import Contact, Counterparty
 from app.models.trips import ClientRequest, ClientRequestLine
 from app.schemas.emails import (
@@ -17,6 +18,7 @@ from app.schemas.emails import (
     UncertainDTO,
 )
 from app.schemas.trips import IdName
+from app.services.reply_label import reply_label
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -117,6 +119,36 @@ def get_email(session: Session, email_id: int) -> EmailDTO:
         attachments=[_attachment_dto(a) for a in attachments],
         agent_notes=[AgentNoteDTO(**n) for n in (request.agent_notes or [])] if request else [],
         uncertain=_uncertain(session, request) if request else [],
+    )
+
+
+def get_outbound_email(session: Session, email_id: int) -> EmailDTO:
+    """Изходящо писмо (отделен маршрут: id-тата на входящи и изходящи се застъпват)."""
+    email = session.get(OutboundEmail, email_id)
+    if email is None:
+        raise DomainError("not_found", "Писмото не е намерено.", http_status=404)
+    counterparty = session.get(Counterparty, email.counterparty_id) if email.counterparty_id else None
+    attachments = session.scalars(
+        select(EmailAttachment)
+        .where(EmailAttachment.outbound_email_id == email.id)
+        .order_by(EmailAttachment.id)
+    ).all()
+    company = session.scalar(select(CompanySettings))
+    return EmailDTO(
+        from_name=company.short_name if company is not None else None,
+        from_address=company.system_mailbox_address if company is not None else "",
+        to=list(email.to_addresses),
+        received_at=email.sent_at or email.created_at,
+        subject=email.subject,
+        body_text=email.body_text,
+        verified_sender=True,
+        counterparty=IdName(id=counterparty.id, name=counterparty.name) if counterparty else None,
+        match_label=None,
+        call_phone=None,
+        attachments=[_attachment_dto(a) for a in attachments],
+        agent_notes=[],
+        uncertain=[],
+        reply=reply_label(session, email.id),
     )
 
 

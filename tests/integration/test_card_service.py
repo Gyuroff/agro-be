@@ -285,7 +285,9 @@ def test_dashboard_shape(
         "created_at",
         "call_phone",
         "payload",
+        "reply",
     }
+    assert body["cards"][0]["reply"] is None
     today_block = body["trips_today"]
     assert today_block["count"] == 7  # без отказания и без другия ден
     assert today_block["planned_qty_t"] == "176.400"

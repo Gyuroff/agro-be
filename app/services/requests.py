@@ -50,6 +50,7 @@ from app.services.cards import ActionResult, CardService, register_action
 from app.services.contract_alerts import check_over
 from app.services.offers import best_offer
 from app.services.outbound import OutboundService
+from app.services.reply_label import reply_label
 from app.services.stock import check_stock_low
 from app.services.trips import PlannedTripData, TripService
 
@@ -307,6 +308,7 @@ class RequestService:
             groups=groups,
             warnings=warnings,
             version=request.version,
+            reply=reply_label(session, request.outbound_email_id),
         )
 
     # ---------- редакция ----------

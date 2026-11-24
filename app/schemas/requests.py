@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.cards import Dec
+from app.schemas.emails import ReplyDTO
 from app.schemas.trips import IdNumber
 
 Tonnes = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=3)]
@@ -83,6 +84,7 @@ class RequestDTO(BaseModel):
     groups: list[SupplierGroupDTO]
     warnings: list[str]
     version: int
+    reply: ReplyDTO | None = None
 
 
 class PatchEmailBody(BaseModel):

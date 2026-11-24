@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.schemas.cards import Dec
+from app.schemas.emails import ReplyDTO
 from app.schemas.proposals import ProposalDTO
 from app.schemas.trips import TripListItemDTO
 
@@ -18,6 +19,7 @@ class CardDTO(BaseModel):
     created_at: datetime
     call_phone: str | None
     payload: dict[str, Any]
+    reply: ReplyDTO | None = None
 
 
 class TripsTodayDTO(BaseModel):

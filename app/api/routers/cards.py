@@ -33,7 +33,7 @@ def card_action(
     card, result = CardService.perform_action(session, card_id, action, body or {})
     still_open = card.status == CardStatus.OPEN.value
     return CardActionResponse(
-        card=card_dto(card) if still_open else None,
+        card=card_dto(session, card) if still_open else None,
         snackbar=result.snackbar,
         undo_token=result.undo_token,
         proposal=ProposalDTO.model_validate(result.proposal) if result.proposal is not None else None,
