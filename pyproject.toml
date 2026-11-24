@@ -69,7 +69,7 @@ known-third-party = ["alembic"]
 "tests/integration/test_admin.py" = ["RUF012"]
 
 [tool.pyright]
-include = ["app", "tests"]
+include = ["app", "tests", "evals"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"  # basic+ за всичко; strict за чистия код по-долу
 strict = ["app/core", "app/domain"]

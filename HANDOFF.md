@@ -297,3 +297,10 @@
 - НЕ са сийднати (липсват таблици/сервизи): invoice_due, invoice_mismatch, invoice_missing, export_error, storage_upload_failed (`stored_objects` има, картата не е сийдната), one_shot_* и supplier_doc (няма `one_shot_deals`).
 - `alembic downgrade base` върху сийднатата база вече минава: `0012` и `0016` при връщане трият картите `stock_low`/`payment_question` (и пушовете към тях), които старият CHECK не познава.
 
+
+## agro-6p5.9 — eval harness (готово)
+- `evals/` (dataset, metrics, runner, baseline, report), `scripts/eval_agents.py`, `scripts/promote_failure.py`, `recording_fixtures()` в `app/agents/llm.py`, `tests/unit/test_evals.py`.
+- Случаят е `*.expected.json` с `agent`, `input` (вход на графа, вграден — не `.eml`), `classify`/`extract`; освен това се чете старият `tests/fixtures/classifier/*cases.json`. Golden `.eml` от `agro-5xa.2` още няма → `--dataset tests/fixtures` мери засега само класификатора.
+- Със `stub` CLI отказва без `--allow-stub` (stub = integration). Baselines (`evals/baselines/`) са празни: първият реален run с `--accept-baseline`.
+- Не е направено: CI job (чака `agro-zaz.3`); gate за `substitute_accuracy` и `match_accuracy` (няма агент/данни); `qty_mae` е само за редове, намерени и в двете страни.
+- Отворено за собственика (от `agro-6p5.9`): разбиване на заявки >1 камион на по ~25 т — не е решено.

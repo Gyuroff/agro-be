@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -92,3 +94,25 @@ def test_run_agent_writes_with_agent_actor(db_session: Session, audit_ctx: Audit
 def test_run_agent_rejects_unknown_agent(db_session: Session, audit_ctx: AuditContext) -> None:
     with pytest.raises(ValueError):
         run_agent(db_session, "nope", None, _graph(["request"]), {"text": "t"}, "v1")
+
+
+def test_promote_failure_writes_skeleton_from_agent_run(
+    db_session: Session, audit_ctx: AuditContext, tmp_path: Path
+) -> None:
+    from scripts.promote_failure import promote
+
+    outcome = run_agent(
+        db_session,
+        "request_parser",
+        ("inbound_emails", 3),
+        _graph(["request"]),
+        {"text": "hi"},
+        "request_parser@4",
+    )
+    path = promote(db_session, outcome.run_id, tmp_path)
+    skeleton = json.loads(path.read_text(encoding="utf-8"))
+    assert skeleton["agent"] == "request_parser" and skeleton["input"] is None
+    assert skeleton["extract"] == {"kind": "request"}
+    assert skeleton["meta"]["agent_run_id"] == outcome.run_id
+    with pytest.raises(SystemExit):
+        promote(db_session, outcome.run_id, tmp_path)  # не презаписва

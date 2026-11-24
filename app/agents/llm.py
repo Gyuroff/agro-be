@@ -6,7 +6,8 @@
 
 import hashlib
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -116,6 +117,35 @@ def get_chat_model(agent: str) -> StructuredModel:
     )
 
 
+_record_dir: Path | None = None
+
+
+@contextmanager
+def recording_fixtures(directory: Path = FIXTURES_DIR) -> Iterator[None]:
+    """Докато е активен, всеки отговор на истинския модел се записва като stub fixture
+    (`<directory>/<agent>/<sha1>.json`) — `eval_agents.py --write-fixtures`. Не се ползва в прод."""
+    global _record_dir
+    previous, _record_dir = _record_dir, directory
+    try:
+        yield
+    finally:
+        _record_dir = previous
+
+
+def _recording(agent: str, inner: Runnable[Any, Any], directory: Path) -> Runnable[Any, Any]:
+    stub = StubChatModel(agent, directory)
+
+    def invoke(messages: Messages) -> Any:
+        result = inner.invoke(messages)
+        path = stub.fixture_path(messages)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(cast(BaseModel, result).model_dump_json(indent=2) + "\n", encoding="utf-8")
+        return result
+
+    return RunnableLambda(invoke)
+
+
 def get_structured_model(agent: str, schema: type[BaseModel]) -> Runnable[Any, Any]:
     """Модел с native structured output (Claude `json_schema`); stub чете fixtures."""
-    return get_chat_model(agent).with_structured_output(schema, method="json_schema")
+    model = get_chat_model(agent).with_structured_output(schema, method="json_schema")
+    return _recording(agent, model, _record_dir) if _record_dir is not None else model
