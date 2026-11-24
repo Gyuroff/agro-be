@@ -32,6 +32,7 @@ class CompanySettings(AuditMixin, Base):
     bic: Mapped[str | None] = mapped_column(Text, nullable=True)
     email_signature: Mapped[str] = mapped_column(Text, nullable=False)
     system_mailbox_address: Mapped[str] = mapped_column(Text, nullable=False)
+    accountant_email: Mapped[str | None] = mapped_column(Text, nullable=True)
     default_vat_rate: Mapped[Decimal] = mapped_column(Pct, nullable=False, server_default=text("20.00"))
     default_planned_truck_qty_t: Mapped[Decimal] = mapped_column(
         Tonnes, nullable=False, server_default=text("25.200")

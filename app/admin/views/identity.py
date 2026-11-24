@@ -174,6 +174,7 @@ class CompanyAdmin(AuditedModelView, model=CompanySettings):
         "bic": "BIC",
         "email_signature": "Подпис на писмата",
         "system_mailbox_address": "Системна кутия",
+        "accountant_email": "Имейл на счетоводителя",
     }
 
 

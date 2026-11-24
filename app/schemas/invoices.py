@@ -68,3 +68,24 @@ class IssueInvoiceRequest(BaseModel):
 
 class VersionDTO(BaseModel):
     version: int
+
+
+class ComparisonRowDTO(BaseModel):
+    label: str
+    erp: str
+    mega: str
+    diff: str | None
+    ok: bool
+
+
+class ComparisonDTO(BaseModel):
+    id: int
+    customer_name: str
+    mega_number: str | None
+    rows: list[ComparisonRowDTO]
+    explanation: str | None
+    resolution: str | None
+
+
+class ResolveComparisonRequest(BaseModel):
+    resolution: Literal["notify_accountant", "mega_correct"]

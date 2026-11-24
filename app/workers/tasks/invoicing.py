@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session
 
 from app.core import clock
-from app.services import invoice_service, invoicing
+from app.services import invoice_service, invoicing, mega_comparison
 from app.workers.audited import audited_task
 
 
@@ -16,3 +16,8 @@ def daily_billing(session: Session) -> list[int]:
 def deliver_invoice(session: Session, invoice_id: int) -> bool:
     """След издаване: PDF и писмо до клиента. Идемпотентна; грешката не пипа номера."""
     return invoice_service.InvoiceService.deliver(session, invoice_id)
+
+
+@audited_task("system:scheduler", name="invoicing.mega_missing_check")
+def mega_missing_check(session: Session) -> list[int]:
+    return mega_comparison.mega_missing_check(session, clock.today_sofia())

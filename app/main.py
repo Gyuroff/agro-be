@@ -8,6 +8,7 @@ from app.admin.views import ALL_VIEWS
 from app.api.routers import (
     auth,
     cards,
+    comparisons,
     contracts,
     counterparties,
     emails,
@@ -49,5 +50,6 @@ def create_app(admin_views: Iterable[type[AuditedModelView]] = ALL_VIEWS) -> Fas
     app.include_router(reports.router, prefix="/api/v1")
     app.include_router(result.router, prefix="/api/v1")
     app.include_router(invoices.router, prefix="/api/v1")
+    app.include_router(comparisons.router, prefix="/api/v1")
     setup_admin(app, admin_views)
     return app

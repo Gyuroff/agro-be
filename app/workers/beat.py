@@ -9,6 +9,10 @@ beat_schedule: dict[str, dict[str, object]] = {
         "task": "invoicing.daily_billing",
         "schedule": crontab(hour=7, minute=30),
     },
+    "invoicing-mega-missing-check": {
+        "task": "invoicing.mega_missing_check",
+        "schedule": crontab(hour=9, minute=0),
+    },
     "push-dispatch-due": {"task": "push.dispatch_due", "schedule": schedule(run_every=60)},
     "push-morning-digest": {"task": "push.morning_digest", "schedule": crontab(hour=7, minute=0)},
 }
