@@ -30,7 +30,7 @@ from tests.integration.test_trips import World
 
 D = Decimal
 
-pytestmark = pytest.mark.usefixtures("live_mode")
+pytestmark = [pytest.mark.usefixtures("live_mode"), pytest.mark.mail]
 
 
 class Setup:

@@ -21,6 +21,8 @@ from app.services import report_intake
 from app.services.report_views import report_dto
 from tests.integration.test_report_matching import World
 
+pytestmark = pytest.mark.mail
+
 D = Decimal
 DAY = date(2026, 11, 11)
 GOOD = ["СА 1000 ВХ", "СА 1001 ВХ", "СА 1002 ВХ", "СА 1003 ВХ", "СА 1004 ВХ", "СА 1005 ВХ"] + [

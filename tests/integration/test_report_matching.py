@@ -177,6 +177,7 @@ def test_other_supplier_and_non_planned_are_ignored(w: World, db_session: Sessio
     assert counts(w.lines()) == (0, 2, 0)
 
 
+@pytest.mark.mail
 def test_suggest_substitutes_links_rv2211tt_to_sv7890tr(w: World, db_session: Session) -> None:
     day = date(2026, 11, 11)
     w.trip("СВ 7890 ТР", day)

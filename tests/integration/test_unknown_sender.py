@@ -16,6 +16,8 @@ from app.services.cards import CardService
 from tests.integration.test_trips import World
 from tests.integration.test_trips_api import api, auth, w
 
+pytestmark = pytest.mark.mail
+
 __all__ = ["api", "auth", "w"]
 
 SENDER = "Office@Agro-Fermer.bg"

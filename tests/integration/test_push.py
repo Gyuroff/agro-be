@@ -192,6 +192,7 @@ def test_recipients_exclude_disabled_revoked_and_tokenless(db_session: Session, 
         assert push.enqueue_for_card(db_session, over_card(db_session, 2).id) == []
 
 
+@pytest.mark.mail
 def test_send_failed_hook_pushes_urgent_p4(db_session: Session, device: Device, sender: FakeSender) -> None:
     out = OutboundService.create_draft(
         db_session,

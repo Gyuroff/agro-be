@@ -22,6 +22,8 @@ from app.services import inbound_mail
 from app.services.request_intake import pick_contract
 from tests.integration.test_trips import World
 
+pytestmark = pytest.mark.mail
+
 D = Decimal
 
 

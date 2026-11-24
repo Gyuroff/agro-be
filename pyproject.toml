@@ -80,5 +80,6 @@ venv = ".venv"
 testpaths = ["tests"]
 addopts = "-ra"
 markers = [
+    "mail: пощенският поток (M-I1…M-I10, gate за agro-ha8.7; `pytest -k mail`)",
     "e2e: сценарии с GreenMail (nightly / преди go-live на поток)",
 ]
