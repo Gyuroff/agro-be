@@ -78,6 +78,7 @@ class CancellationPayload(_Payload):
     plates: list[str]
     supplier_name: str
     notify_supplier: bool
+    not_found_plates: list[str] = []  # номера от писмото без планиран курс на клиента (agro-6p5.6)
 
 
 class InvoiceDueLine(_Payload):
