@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKey, Index, Text, text
+from sqlalchemy import BigInteger, ForeignKey, Index, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,11 @@ class ProposalStatus(StrEnum):
     PENDING = "pending"
     CONFIRMED_CORRECT = "confirmed_correct"
     CONFIRMED_WRONG = "confirmed_wrong"
+
+
+class FeedbackVerdict(StrEnum):
+    CORRECT = "correct"
+    WRONG = "wrong"
 
 
 class ActionProposal(AuditMixin, Base):
@@ -43,3 +48,20 @@ class ActionProposal(AuditMixin, Base):
         server_default=ProposalStatus.PENDING.value,
     )
     requested_by_id: Mapped[int | None] = mapped_column(ForeignKey("actors.id"), nullable=True)
+
+
+class ProposalFeedback(AuditMixin, Base):
+    """Вердикт на човека върху цялото предложение; един на предложение (docs/data-model.md)."""
+
+    __tablename__ = "proposal_feedback"
+    __table_args__ = (
+        enum_check("verdict", FeedbackVerdict),
+        UniqueConstraint("proposal_id", name="uq_proposal_feedback_proposal_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    proposal_id: Mapped[int] = mapped_column(ForeignKey("action_proposals.id"), nullable=False)
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    note_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    error_label: Mapped[str | None] = mapped_column(Text, nullable=True)

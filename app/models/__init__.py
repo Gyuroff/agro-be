@@ -15,7 +15,7 @@ from app.models.invoicing import (
 )
 from app.models.mail import EmailAttachment, InboundEmail, MailboxPoll, OutboundEmail
 from app.models.masterdata import Contact, Counterparty, CounterpartyDomain, Product, Warehouse
-from app.models.proposals import ActionProposal
+from app.models.proposals import ActionProposal, ProposalFeedback
 from app.models.reports import SupplierReport, SupplierReportLine
 from app.models.result import Expense, ExpenseCategory, MonthlyResultOpening
 from app.models.storage import StoredObject
@@ -51,6 +51,7 @@ __all__ = [
     "NumberSequence",
     "OutboundEmail",
     "Product",
+    "ProposalFeedback",
     "PushNotification",
     "RefreshToken",
     "StoredObject",
