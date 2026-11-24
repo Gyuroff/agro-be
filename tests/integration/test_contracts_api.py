@@ -126,6 +126,53 @@ def test_detail_purchase_prices_by_packaging(api: TestClient, auth: dict[str, st
     assert d["billing_label"] is None
 
 
+def test_detail_funds_prepaid(api: TestClient, auth: dict[str, str], w: World) -> None:
+    w.session.add(
+        ContractPrice(contract_id=w.purchase.id, valid_from=date(2026, 6, 1), price_per_t=D("200.00"))
+    )
+    w.purchase.purchase_payment_mode = "prepaid"
+    w.purchase.funds_balance = D("42000.00")
+    w.purchase.funds_held_by = "counterparty"
+    w.purchase.advance_buffer_type = "amount"
+    w.purchase.advance_buffer_value = D("5000.00")
+    w.session.flush()
+    w.planned("290.000")
+    funds = api.get(f"/api/v1/contracts/{w.purchase.id}", headers=auth).json()["funds"]
+    assert funds == {
+        "balance": "42000.00",
+        "reserved": "58000.00",
+        "available": "-16000.00",
+        "held_by": "counterparty",
+        "label": "Наш аванс при доставчика",
+        "needed": "58000.00",
+        "buffer": "5000.00",
+        "shortfall": "21000.00",
+    }
+
+
+def test_detail_funds_percent_buffer_and_no_shortfall(
+    api: TestClient, auth: dict[str, str], w: World
+) -> None:
+    w.purchase.funds_balance = D("100000.00")
+    w.purchase.funds_held_by = "counterparty"
+    w.purchase.advance_buffer_type = "percent"
+    w.purchase.advance_buffer_value = D("10.00")
+    w.session.flush()
+    w.planned("100.000")  # 100 т × 150.00
+    funds = api.get(f"/api/v1/contracts/{w.purchase.id}", headers=auth).json()["funds"]
+    assert (funds["needed"], funds["buffer"], funds["shortfall"]) == ("15000.00", "1500.00", "0.00")
+
+
+def test_detail_funds_held_by_us_and_absent(api: TestClient, auth: dict[str, str], w: World) -> None:
+    w.sale.funds_balance = D("3000.00")
+    w.sale.funds_held_by = "us"
+    w.session.flush()
+    funds = api.get(f"/api/v1/contracts/{w.sale.id}", headers=auth).json()["funds"]
+    assert funds["held_by"] == "us"
+    assert (funds["needed"], funds["buffer"], funds["shortfall"]) == (None, None, None)
+    assert api.get(f"/api/v1/contracts/{w.purchase.id}", headers=auth).json()["funds"] is None
+
+
 def test_detail_404(api: TestClient, auth: dict[str, str], w: World) -> None:
     assert api.get("/api/v1/contracts/999999", headers=auth).status_code == 404
 

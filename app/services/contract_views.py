@@ -11,14 +11,16 @@ from sqlalchemy.orm import Session
 from app.core import clock
 from app.core.errors import DomainError
 from app.domain.billing import billing_label, next_billing_date
+from app.domain.money import q2
 from app.models.contracts import Contract, ContractPrice, ContractSide, ContractStatus, FundsHeldBy
 from app.models.masterdata import Counterparty, Product, Warehouse
-from app.models.trips import Trip, TripStatus
+from app.models.trips import ClientRequestLine, Trip, TripStatus
 from app.schemas.contracts import (
     ContractDetailDTO,
     ContractListDTO,
     ContractRowDTO,
     ContractSearchItemDTO,
+    FundsDTO,
     PurchasePriceDTO,
     TripsSummaryDTO,
 )
@@ -130,6 +132,54 @@ def _current_prices(session: Session, contract_id: int, today: date) -> dict[str
     return out
 
 
+def _funds(session: Session, contract: Contract, today: date) -> FundsDTO | None:
+    """Блокът `funds` (docs/api.md §6, agro-h9u). needed/buffer/shortfall — само за наш аванс."""
+    if contract.funds_balance is None or contract.funds_held_by is None:
+        return None
+    balance = contract.funds_balance
+    held_by = cast("Literal['counterparty', 'us']", contract.funds_held_by)
+    label = FUNDS_LABELS[contract.funds_held_by]
+    if held_by == FundsHeldBy.US.value:
+        return FundsDTO(
+            balance=balance, reserved=Decimal("0.00"), available=balance, held_by=held_by, label=label,
+            needed=None, buffer=None, shortfall=None,
+        )  # fmt: skip
+    needed = _needed(session, contract.id, today)
+    buffer = _buffer(contract, needed)
+    return FundsDTO(
+        balance=balance,
+        reserved=needed,
+        available=balance - needed,
+        held_by=held_by,
+        label=label,
+        needed=needed,
+        buffer=buffer,
+        shortfall=max(Decimal("0.00"), needed + buffer - balance),
+    )
+
+
+def _needed(session: Session, contract_id: int, today: date) -> Decimal:
+    """Σ(planned_qty_t × покупна цена по разфасовка) за planned курсове на договора."""
+    prices = _current_prices(session, contract_id, today)
+    default = next((prices[p] for p in PACKAGINGS if p in prices), Decimal("0"))
+    rows = session.execute(
+        select(Trip.planned_qty_t, ClientRequestLine.packaging)
+        .outerjoin(ClientRequestLine, ClientRequestLine.trip_id == Trip.id)
+        .where(Trip.purchase_contract_id == contract_id, Trip.status == TripStatus.PLANNED.value)
+    ).all()
+    total = sum((qty * prices.get(pack or "", default) for qty, pack in rows), Decimal("0"))
+    return q2(total)
+
+
+def _buffer(contract: Contract, needed: Decimal) -> Decimal:
+    value = contract.advance_buffer_value
+    if contract.advance_buffer_type is None or value is None:
+        return Decimal("0.00")
+    if contract.advance_buffer_type == "percent":
+        return q2(needed * value / 100)
+    return q2(value)
+
+
 def contract_detail(session: Session, contract: Contract, today: date | None = None) -> ContractDetailDTO:
     today = today or clock.today_sofia()
     cps, products, wh = _names(session, [contract])
@@ -204,6 +254,7 @@ def contract_detail(session: Session, contract: Contract, today: date | None = N
             if not is_sale
             else None,
         ),
+        funds=_funds(session, contract, today),
         trips_summary=TripsSummaryDTO(count=count, qty_t=Decimal(str(qty)).quantize(Decimal("0.001"))),
         recent_trips=trip_list_items(session, list(recent), "short"),
     )

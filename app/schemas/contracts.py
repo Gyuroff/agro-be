@@ -43,6 +43,17 @@ class TripsSummaryDTO(BaseModel):
     qty_t: Dec
 
 
+class FundsDTO(BaseModel):
+    balance: Dec
+    reserved: Dec
+    available: Dec
+    held_by: Literal["counterparty", "us"]
+    label: str
+    needed: NullableDec
+    buffer: NullableDec
+    shortfall: NullableDec
+
+
 class ContractDetailDTO(ContractRowDTO):
     side: Literal["sale", "purchase"]
     valid_from: date
@@ -55,7 +66,7 @@ class ContractDetailDTO(ContractRowDTO):
     next_billing_date: date | None
     payment_terms_days: int | None
     purchase_payment_mode: Literal["prepaid", "pay_on_invoice", "pay_after_client"] | None
-    # TODO(agro-w5h): блокът funds (balance/reserved/available/needed/buffer/shortfall) — виж bd note.
+    funds: FundsDTO | None
     trips_summary: TripsSummaryDTO
     recent_trips: list[TripListItemDTO]
 

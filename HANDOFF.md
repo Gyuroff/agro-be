@@ -276,3 +276,10 @@
 - Устройства: `can_edit=False` (спецификацията казва „✓ само revoked_at чрез действие“; действието „Отнеми“ е единствената промяна). Контрагент `erp` без договор с цена се отхвърля само при РЕДАКЦИЯ (нов контрагент няма как да има договор).
 - ЕИК (9/13 цифри) и ДДС (`BG123…`) се валидират в `on_model_change`; формат на ДДС е моя интерпретация.
 - Тестовете комитват за реално (админът ползва свои връзки); фикстурата `web` чисти устройства/токени, иначе чупят `test_auth` (избира всички `RefreshToken`).
+
+## agro-w5h (funds в GET /contracts/{id}) — готово
+- `FundsDTO` в `app/schemas/contracts.py`, `_funds/_needed/_buffer` в `app/services/contract_views.py`, 3 теста в `tests/integration/test_contracts_api.py`.
+- Решения на собственика: needed = Σ(planned_qty_t × цена по разфасовка) за planned курсове на договора; reserved = needed; available = balance − reserved; buffer: percent от needed / amount / NULL→0.00.
+- Мои допускания: ред без разфасовка/без цена за нея → цената на първата налична (bulk преди bagged); при held_by=us `reserved`=0.00, `available`=balance (спецификацията не дава правило).
+- Примерът в `docs/api.md` §6 (reserved 18000/available 24000 при needed 58000) не съвпада с правилото reserved = needed — да се поправи в agro-app.
+- Няма `supplier_advance_low` изчисление в бекенда още; когато се прави, да ползва `_needed/_buffer`.
