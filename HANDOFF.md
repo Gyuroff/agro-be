@@ -289,3 +289,11 @@
 - `app/services/invoice_service.py`: `issue` (транзакция), `deliver` (след commit през Celery `invoicing.deliver_invoice`: PDF + писмо, идемпотентна), `resend`, действие `invoice_due/issue` (+ съветен режим). `emailed_at` се слага от before_send куката.
 - PDF: `app/invoicing/pdf.py` + `templates/invoice.html`. WeasyPrint на този Mac няма pango → тестът за истински PDF се пропуска; PDF НЕ е проверен визуално срещу екран 13 (`brew install pango`).
 - Липсва: `GET /invoices` и `POST /invoices/export` (не са в тази задача), XML към Мега (T7.3).
+
+## agro-l2v.12 — сийд за разработка
+- `SEED_PASSWORD=… PYTHONPATH=. uv run python scripts/seed_dev.py` (идемпотентен; операционният блок се пропуска по `message_id=seed-ops-v1`); `scripts/create_user.py`; тест `tests/integration/test_seed_dev.py`.
+- Измислено (спецификацията не го дава): ЕИК `2000000xx`, телефон на Агро Трейд, имената на 3-мата съдружници („Съдружник 2–4“, `partnerN@agro.example`), камиони/шофьори, цени освен 118/120/132 (Тор NPK 410/380, Слънчоглед 480/455), стоката на договорите (2026-015 и П-2026-009 = Тор NPK; 2026-011 и П-2026-004 = Слънчоглед), склад на Тор Импекс, категория „Други“ за ремонта, `opening_drawn_qty_t` 1850 / 470 за карти contract_over / stock_low.
+- Курсове: Чт 12.11 = 4 натоварени / 4 планирани / 1 отказан (5 Пелети, 3 Тор, 1 Слънчоглед); планираните са не-Пелети, защото `match_lines` търси планирани курсове на доставчика ±1 ден → иначе „липсва“ ≠ 1. Справка от Пелет АД за 11.11 = 11/1/1.
+- НЕ са сийднати (липсват таблици/сервизи): invoice_due, invoice_mismatch, invoice_missing, export_error, storage_upload_failed (`stored_objects` има, картата не е сийдната), one_shot_* и supplier_doc (няма `one_shot_deals`).
+- `alembic downgrade base` гърми върху база с карти `payment_question` (CHECK при връщане) — съществуващо; сийдната dev база се нулира с `drop schema public cascade`.
+

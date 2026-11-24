@@ -7,7 +7,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     mega_test_export_dir: str | None = None
     mega_prod_export_dir: str | None = None
     cors_origins: str = ""
+
+    # Сийд за разработка (scripts/seed_dev.py): парола на съдружниците и домейн на имейлите им
+    seed_password: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("SEED_PASSWORD", "APP_SEED_PASSWORD")
+    )
+    seed_email_domain: str = Field(
+        default="agro.example", validation_alias=AliasChoices("SEED_EMAIL_DOMAIN", "APP_SEED_EMAIL_DOMAIN")
+    )
 
 
 @lru_cache
