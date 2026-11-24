@@ -6,7 +6,7 @@
 - Стоката на нерешен непланиран ред (в справката няма колона за стока) е стоката на покупните договори
   на доставчика, ако е една; иначе 422 `product_unknown` и картата остава отворена (решение на собственика,
   `bd note agro-br9.7`).
-- `InvoiceDraftBuilder` (agro-66f.1) още не съществува: при `billing_mode=per_trip` чернова не се прави.
+- При `billing_mode=per_trip` `confirm` вика `bill_per_trip` (agro-66f.1): чернова на клиент за деня.
 """
 
 from typing import Any
@@ -23,6 +23,7 @@ from app.models.reports import LineResolution, MatchStatus, ReportStatus, Suppli
 from app.models.trips import Trip, TripOrigin
 from app.services.cards import ActionResult, CardService, register_action
 from app.services.contract_alerts import check_over
+from app.services.invoicing import bill_per_trip
 from app.services.report_matching import counts_as_matched
 from app.services.trips import TripService
 
@@ -220,6 +221,7 @@ class ReportService:
             contract = session.get(Contract, contract_id)
             if contract is not None:
                 check_over(session, contract)
+        bill_per_trip(session, touched)
         session.flush()
         return ActionResult(f"Отбелязани като изпълнени: {completed}")
 
