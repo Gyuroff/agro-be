@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     llm_model_report_parser: str | None = None
     llm_model_report_matcher: str | None = None
     llm_model_cancellation_parser: str = "claude-haiku-5-5"
-    llm_model_mi_invoice_parser: str | None = None
+    llm_model_mega_invoice_parser: str | None = None
     llm_model_invoice_comparator: str | None = None
     llm_effort_default: str = "medium"
     llm_effort_email_classifier: str = "low"

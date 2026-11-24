@@ -201,4 +201,10 @@ def _handle_reply(session: Session, email: InboundEmail) -> InboundStatus:
 
 KIND_HANDLERS[EmailKind.REPLY] = _handle_reply
 
-from app.services import cancellation_intake, payment_questions, report_intake, request_intake  # noqa: E402,F401  (регистрират обработчиците)
+from app.services import (  # noqa: E402,F401  (регистрират обработчиците)
+    cancellation_intake,
+    mega_invoice_intake,
+    payment_questions,
+    report_intake,
+    request_intake,
+)
