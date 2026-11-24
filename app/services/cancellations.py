@@ -110,6 +110,8 @@ def confirm(session: Session, card: ActionCard, body: dict[str, Any]) -> ActionR
                 kind="cancel_supplier",
                 title="Бих уведомила доставчика за отказаните курсове",
                 payload={
+                    "date": _payload(card).date.isoformat(),
+                    "plates": [t.plate_display for t in cancelled],
                     "to": to,
                     "subject": smtp.subject_with_reference(subject, "АИТ-…"),
                     "body_text": smtp.render_body(

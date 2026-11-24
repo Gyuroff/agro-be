@@ -163,4 +163,7 @@ def test_advisory_cancels_but_does_not_queue_letter(w: World, db_session: Sessio
     CardService.perform_action(db_session, card.id, "confirm", {"notify_supplier": True})
     assert trips[0].status == TripStatus.CANCELLED.value
     assert _outbound(db_session) == []
-    assert db_session.scalars(select(ActionProposal)).one().kind == "cancel_supplier"
+    proposal = db_session.scalars(select(ActionProposal)).one()
+    assert proposal.kind == "cancel_supplier"
+    assert proposal.payload["to"] == "orders@pelet.bg" and proposal.payload["plates"] == ["СВ 7890 ТР"]
+    assert "СВ 7890 ТР" in proposal.payload["body_text"]
