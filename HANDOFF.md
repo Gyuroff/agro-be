@@ -283,3 +283,9 @@
 - Мои допускания: ред без разфасовка/без цена за нея → цената на първата налична (bulk преди bagged); при held_by=us `reserved`=0.00, `available`=balance (спецификацията не дава правило).
 - Примерът в `docs/api.md` §6 (reserved 18000/available 24000 при needed 58000) не съвпада с правилото reserved = needed — да се поправи в agro-app.
 - Няма `supplier_advance_low` изчисление в бекенда още; когато се прави, да ползва `_needed/_buffer`.
+
+## agro-66f.2 — издаване на фактура (erp)
+- Решения на собственика: номерът е от Мега през `app/invoicing/numbers.py` (`InvoiceNumberProvider`; засега `UnconfiguredNumberProvider` → 503 `mega_number_unavailable`, истинската връзка — отворен въпрос 12, закача се с `set_number_provider`); няма пилотна поредица, `number_sequences` и `number_sequence_id` не се ползват за фактури (разминава се с data-model.md §4/§11); `tax_event_date` = днешна дата.
+- `app/services/invoice_service.py`: `issue` (транзакция), `deliver` (след commit през Celery `invoicing.deliver_invoice`: PDF + писмо, идемпотентна), `resend`, действие `invoice_due/issue` (+ съветен режим). `emailed_at` се слага от before_send куката.
+- PDF: `app/invoicing/pdf.py` + `templates/invoice.html`. WeasyPrint на този Mac няма pango → тестът за истински PDF се пропуска; PDF НЕ е проверен визуално срещу екран 13 (`brew install pango`).
+- Липсва: `GET /invoices` и `POST /invoices/export` (не са в тази задача), XML към Мега (T7.3).

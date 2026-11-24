@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10pt; color: #111; }
+  h1 { font-size: 16pt; margin: 0 0 4mm; }
+  .meta { margin-bottom: 6mm; }
+  .parties { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+  .parties td { width: 50%; vertical-align: top; padding: 0 4mm 0 0; }
+  .parties h2 { font-size: 10pt; margin: 0 0 1mm; text-transform: uppercase; color: #555; }
+  table.lines { width: 100%; border-collapse: collapse; }
+  table.lines th, table.lines td { border: 1px solid #999; padding: 1.5mm 2mm; }
+  table.lines th { background: #eee; text-align: left; }
+  .num { text-align: right; white-space: nowrap; }
+  .totals { margin: 4mm 0 0 auto; width: 55%; border-collapse: collapse; }
+  .totals td { padding: 1mm 2mm; }
+  .totals tr.grand td { border-top: 2px solid #111; font-weight: bold; }
+  .footer { margin-top: 10mm; }
+  .watermark { position: fixed; top: 105mm; left: 0; right: 0; text-align: center; font-size: 80pt;
+               color: rgba(200, 0, 0, 0.18); transform: rotate(-30deg); }
+</style>
+</head>
+<body>
+{% if draft %}<div class="watermark">ЧЕРНОВА</div>{% endif %}
+<h1>Фактура № {{ number_display or "—" }}</h1>
+<div class="meta">
+  Дата на издаване: {{ issue_date or "—" }}<br>
+  Дата на данъчното събитие: {{ tax_event_date or "—" }}<br>
+  Падеж: {{ due_date or "—" }}<br>
+  Период: {{ period_from }} – {{ period_to }}
+</div>
+<table class="parties"><tr>
+  <td>
+    <h2>Доставчик</h2>
+    <strong>{{ supplier.name }}</strong><br>
+    ЕИК: {{ supplier.eik }}<br>
+    {% if supplier.vat_number %}ИН по ЗДДС: {{ supplier.vat_number }}<br>{% endif %}
+    Адрес: {{ supplier.address }}<br>
+    МОЛ: {{ supplier.mol }}<br>
+    {% if supplier.iban %}IBAN: {{ supplier.iban }}{% endif %}
+  </td>
+  <td>
+    <h2>Получател</h2>
+    <strong>{{ recipient.name }}</strong><br>
+    ЕИК: {{ recipient.eik }}<br>
+    {% if recipient.vat_number %}ИН по ЗДДС: {{ recipient.vat_number }}<br>{% endif %}
+    Адрес: {{ recipient.address }}<br>
+    МОЛ: {{ recipient.mol }}
+  </td>
+</tr></table>
+<table class="lines">
+  <tr><th>№</th><th>Описание</th><th class="num">Количество (т)</th><th class="num">Цена за т</th><th class="num">Сума</th></tr>
+  {% for l in lines %}
+  <tr>
+    <td>{{ l.no }}</td><td>{{ l.description }}</td>
+    <td class="num">{{ l.qty_t }}</td><td class="num">{{ l.unit_price }}</td><td class="num">{{ l.amount }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<table class="totals">
+  <tr><td>Данъчна основа</td><td class="num">{{ subtotal }} {{ currency }}</td></tr>
+  <tr><td>ДДС {{ vat_rate }}%</td><td class="num">{{ vat_amount }} {{ currency }}</td></tr>
+  <tr class="grand"><td>Сума за плащане</td><td class="num">{{ total }} {{ currency }}</td></tr>
+</table>
+<div class="footer">Начин на плащане: банков път{% if supplier.iban %}, IBAN {{ supplier.iban }}{% endif %}.</div>
+</body>
+</html>
