@@ -304,3 +304,7 @@
 - Със `stub` CLI отказва без `--allow-stub` (stub = integration). Baselines (`evals/baselines/`) са празни: първият реален run с `--accept-baseline`.
 - Не е направено: CI job (чака `agro-zaz.3`); gate за `substitute_accuracy` и `match_accuracy` (няма агент/данни); `qty_mae` е само за редове, намерени и в двете страни.
 - Отворено за собственика (от `agro-6p5.9`): разбиване на заявки >1 камион на по ~25 т — не е решено.
+
+## agro-nhp — разбиване на заявка над един камион (готово)
+- `_truck_split` в `app/services/request_intake.py`: ред без номер, не own_transport, qty > капацитета (`planned_truck_qty_t` на договора, иначе 25,2) → ceil(qty/капацитет) равни реда, сборът е точен; номерът е uncertain + бележка. Ред с номер или без количество не се разбива.
+- `eval`: очакваните редове в golden set за такива заявки са вече няколко (по камион).

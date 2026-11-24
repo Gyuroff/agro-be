@@ -9,7 +9,7 @@
 import logging
 from collections import OrderedDict
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import func, select
@@ -114,24 +114,51 @@ def _build_lines(parsed: list[ParsedLine], default_qty: Decimal, today: date) ->
             qty = qty / 1000
             uncertain["qty"] = None
             notes.append(f"количеството {item.qty_t} е прието за кг → {qty:.3f} т")
-        rows.append(
-            {
-                "planned_date": item.date,
-                "plate_raw": plate_raw,
-                "plate_norm": normalize_plate(plate_raw),
-                "trailer_plate": trailer,
-                "driver_name": item.driver_name,
-                "driver_phone": item.driver_phone,
-                "planned_qty_t": qty if qty is not None else default_qty,
-                "packaging": normalize_packaging(item.packaging_raw),
-                "own_transport": item.own_transport,
-                "source_row": item.source_row,
-                "location_raw": item.location_raw,
-                "uncertain_fields": list(uncertain),
-                "uncertain_note": "; ".join(notes) or None,
-            }
-        )
+        trucks = _truck_split(qty, default_qty) if not plate_raw and not item.own_transport else []
+        if len(trucks) > 1:
+            uncertain["plate"] = None
+            notes.append(f"{qty} т ≈ {len(trucks)} камиона по {trucks[0]} т — номерата се попълват по-късно")
+        for truck_qty in trucks or [qty]:
+            rows.append(_row(item, plate_raw, trailer, truck_qty, default_qty, uncertain, notes))
     return rows
+
+
+def _truck_split(qty: Decimal | None, capacity: Decimal) -> list[Decimal]:
+    """Количество над един камион (без номер в реда) → n = ceil(qty / капацитет) равни части, сборът е точен.
+
+    Решение на собственика (agro-nhp): камион ≤ капацитета на договора (25,2 т), 48 т ≈ 2 камиона.
+    """
+    if qty is None or qty <= capacity:
+        return []
+    n = (qty / capacity).to_integral_value(rounding=ROUND_CEILING)  # Decimal `//` реже към нулата
+    part = (qty / n).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    return [*([part] * (int(n) - 1)), qty - part * (int(n) - 1)]
+
+
+def _row(
+    item: ParsedLine,
+    plate_raw: str,
+    trailer: str | None,
+    qty: Decimal | None,
+    default_qty: Decimal,
+    uncertain: OrderedDict[str, None],
+    notes: list[str],
+) -> dict[str, Any]:
+    return {
+        "planned_date": item.date,
+        "plate_raw": plate_raw,
+        "plate_norm": normalize_plate(plate_raw),
+        "trailer_plate": trailer,
+        "driver_name": item.driver_name,
+        "driver_phone": item.driver_phone,
+        "planned_qty_t": qty if qty is not None else default_qty,
+        "packaging": normalize_packaging(item.packaging_raw),
+        "own_transport": item.own_transport,
+        "source_row": item.source_row,
+        "location_raw": item.location_raw,
+        "uncertain_fields": list(uncertain),
+        "uncertain_note": "; ".join(notes) or None,
+    }
 
 
 def _warehouse_by_hint(session: Session, hint: str | None) -> Warehouse | None:
