@@ -18,6 +18,7 @@ from app.models.mail import InboundEmail, InboundStatus
 from app.models.reports import MatchStatus, SupplierReport, SupplierReportLine
 from app.schemas.reports import ReportDTO
 from app.services import report_intake
+from app.services.email_views import report_agent_notes
 from app.services.report_views import report_dto
 from tests.integration.test_report_matching import World
 
@@ -127,6 +128,14 @@ def test_figma_report_11_1_1_with_substitute(
     matcher = db_session.scalars(select(AgentRun).where(AgentRun.agent == "report_matcher")).one()
     assert matcher.output is not None and matcher.status == "ok"
     assert matcher.output["explanations"][0]["explanation"] == "Сменен."
+
+    # agro-391: бележките за екран 5 идват от справката и от обяснението на report_matcher
+    notes = {n.label: n for n in report_agent_notes(db_session, mail.id)}
+    assert notes["Вид"].value == "Справка от доставчик"
+    assert notes["Курсове"].value == "12 реда · 298.50 т"
+    assert notes["Съпоставяне"].value == "11 съвпадат · 1 непланирани · 1 липсват"
+    assert notes["Сменен камион?"].value == "РВ 2211 ТТ" and notes["Сменен камион?"].why == "Сменен."
+    assert report_agent_notes(db_session, mail.id + 999) == []
 
     # повторно пускане не дублира справката
     assert report_intake.handle(db_session, mail) is InboundStatus.NEEDS_ACTION

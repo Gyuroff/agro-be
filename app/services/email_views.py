@@ -7,9 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainError
+from app.models.cards import AgentName, AgentRun
 from app.models.company import CompanySettings
 from app.models.mail import EmailAttachment, InboundEmail, MatchMethod, OutboundEmail
 from app.models.masterdata import Contact, Counterparty
+from app.models.reports import MatchStatus, SupplierReport, SupplierReportLine
 from app.models.trips import ClientRequest, ClientRequestLine
 from app.schemas.emails import (
     AgentNoteDTO,
@@ -117,9 +119,64 @@ def get_email(session: Session, email_id: int) -> EmailDTO:
         match_label=label,
         call_phone=sender_phone(session, email),
         attachments=[_attachment_dto(a) for a in attachments],
-        agent_notes=[AgentNoteDTO(**n) for n in (request.agent_notes or [])] if request else [],
+        agent_notes=[AgentNoteDTO(**n) for n in (request.agent_notes or [])]
+        if request
+        else report_agent_notes(session, email.id),
         uncertain=_uncertain(session, request) if request else [],
     )
+
+
+def report_agent_notes(session: Session, email_id: int) -> list[AgentNoteDTO]:
+    """„Какво разчете агентът“ за справка от доставчик: от самата справка и от `agent_runs.output`
+    на `report_matcher` (обясненията за сменен камион) — agro-391."""
+    report = session.scalar(select(SupplierReport).where(SupplierReport.inbound_email_id == email_id))
+    if report is None:
+        return []
+    lines = session.scalars(select(SupplierReportLine).where(SupplierReportLine.report_id == report.id)).all()
+
+    def count(status: MatchStatus) -> int:
+        return sum(1 for ln in lines if ln.match_status == status.value)
+
+    supplier = session.get(Counterparty, report.supplier_id)
+    notes = [
+        AgentNoteDTO(label="Вид", value="Справка от доставчик", why="по текста и прикачения Excel"),
+        AgentNoteDTO(
+            label="Доставчик",
+            value=supplier.name if supplier else "—",
+            why="подателят е съпоставен с доставчик",
+        ),
+        AgentNoteDTO(
+            label="Курсове",
+            value=f"{report.total_rows} реда · {report.total_qty_t:.2f} т",
+            why="от справката",
+        ),
+        AgentNoteDTO(
+            label="Съпоставяне",
+            value=(
+                f"{count(MatchStatus.MATCHED)} съвпадат · {count(MatchStatus.UNPLANNED)} непланирани"
+                f" · {count(MatchStatus.MISSING)} липсват"
+            ),
+            why="по номер, дата ±1 ден и доставчик спрямо планираните курсове",
+        ),
+    ]
+    run = session.scalar(
+        select(AgentRun)
+        .where(
+            AgentRun.agent == AgentName.REPORT_MATCHER.value,
+            AgentRun.subject_type == "supplier_reports",
+            AgentRun.subject_id == report.id,
+        )
+        .order_by(AgentRun.id.desc())
+        .limit(1)
+    )
+    by_id = {ln.id: ln for ln in lines}
+    for item in ((run.output or {}).get("explanations") or []) if run else []:
+        line = by_id.get(item.get("unplanned_line_id"))
+        if line is None or not item.get("explanation"):
+            continue
+        plate = line.plate_raw or "—"
+        notes.append(AgentNoteDTO(label="Сменен камион?", value=plate, why=item["explanation"]))
+    return notes
 
 
 def get_outbound_email(session: Session, email_id: int) -> EmailDTO:
