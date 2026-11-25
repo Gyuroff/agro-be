@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agro
+          POSTGRES_PASSWORD: agro
+          POSTGRES_DB: agro_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agro -d agro_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      # IMAP/SMTP за пощенските интеграционни тестове (както в docker-compose.yml)
+      greenmail:
+        image: greenmail/standalone:2.1.3
+        env:
+          GREENMAIL_OPTS: >-
+            -Dgreenmail.setup.test.smtp
+            -Dgreenmail.setup.test.imap
+            -Dgreenmail.hostname=0.0.0.0
+            -Dgreenmail.users=orders:orders@agroimport.test
+            -Dgreenmail.auth.disabled
+        ports:
+          - 3025:3025
+          - 3143:3143
+    env:
+      APP_ENV: test
+      APP_DATABASE_URL: postgresql+psycopg://agro:agro@localhost:5432/agro_test
+      APP_REDIS_URL: redis://localhost:6379/1
+      APP_JWT_SECRET: ci-jwt-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+      APP_ADMIN_SESSION_SECRET: ci-admin-session-secret-0123456789
+      APP_LLM_PROVIDER: stub
+      TEST_DATABASE_URL: postgresql+psycopg://agro:agro@localhost:5432/agro_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run alembic upgrade head
+      - run: uv run pytest -q --cov=app
